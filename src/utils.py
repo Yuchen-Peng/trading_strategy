@@ -1,6 +1,11 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import yfinance as yf
 
 def stock_trading_strategy(stock_price_df, start_date, end_date, initial_cash, investment, buy_threshold=0.05, sell_threshold=0.05, multiplier=1):
@@ -99,6 +104,7 @@ def stock_trading_strategy(stock_price_df, start_date, end_date, initial_cash, i
         # concatenate the new row to the overall results dataframe
     return results_df
 
+
 def plot_trading_strategy(df_stock, result):
     # plot the daily stock prices as a curve
     plt.figure(figsize=(16, 8))
@@ -126,9 +132,11 @@ def plot_trading_strategy(df_stock, result):
 
     plt.xlabel('Date')
     plt.ylabel('Stock Price')
-    plt.title('Stock Trading Strategy')
+    plt.title('Stock Trading Strategy Visualization')
     plt.legend()
+
     plt.show()
+
 
 def download_stock_df(stock_name, start_date='2020-01-01', end_date='2023-05-07', price='Open'):
     '''
@@ -153,3 +161,30 @@ def download_stock_df(stock_name, start_date='2020-01-01', end_date='2023-05-07'
     # Ensure daily_price is non-negative
     df_stock_price['daily_price'] = df_stock_price['daily_price'].clip(lower=0)
     return df_stock_price
+
+
+
+def user_function():
+    # Create a user function
+    stock_name = (input('Enter the stock name:')).upper()
+    start_date = input('Enter the strategy start date, in YYYY-MM-DD format (default: %s):' % ((datetime.today() - relativedelta(years=1)).strftime('%Y-%m-%d'))) or ((datetime.today() - relativedelta(years=1)).strftime('%Y-%m-%d'))
+    end_date = input('Enter the strategy end date, in YYYY-MM-DD format (default: %s):' % (datetime.today().strftime('%Y-%m-%d'))) or (datetime.today().strftime('%Y-%m-%d'))
+    stock_df = download_stock_df(stock_name)
+    result = stock_trading_strategy(stock_df, start_date, end_date,10000, 1000, buy_threshold=0.05, sell_threshold=0.05, multiplier=1)
+    print('Strategy specifics:')
+    print('    stock name: %s' %(stock_name))
+    print('    strategy start date: %s, strategy end date: %s' %(start_date, end_date))
+    print('    initial cash: 10000, each investment: 1000, threshold: 0.05')
+    print('\n')
+    print('Final Profit:', ((result.iloc[-1]['total_stock_value'] + result.iloc[-1]['total_cash'])-10000))
+    print('Underlying stock price change:', "{0:.02%}".format((result.iloc[-1]['daily_price']-result.iloc[0]['daily_price'])/result.iloc[0]['daily_price']))
+    print('Max Profit ever:', (result['total_stock_value']+result['total_cash']).max() - 10000)
+    print('Max Loss ever:', (result['total_stock_value']+result['total_cash']).min() - 10000)
+
+    print('Number of Purchase & Sell actions:', result[result['action'].isin(['Purchase','Sell'])].shape[0])
+    print('Minimal Cash Reserved: ', result['total_cash'].min())
+    print('\n')
+    print('Transaction samples:')
+    print(result[result['action'].isin(['Purchase','Sell'])].head())
+    plot_trading_strategy(stock_df, result)
+
