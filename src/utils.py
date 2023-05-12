@@ -164,17 +164,28 @@ def download_stock_df(stock_name, start_date='2020-01-01', end_date='2023-05-07'
 
 
 
+# Create a user function
 def user_function():
-    # Create a user function
     stock_name = (input('Enter the stock name:')).upper()
     start_date = input('Enter the strategy start date, in YYYY-MM-DD format (default: %s):' % ((datetime.today() - relativedelta(years=1)).strftime('%Y-%m-%d'))) or ((datetime.today() - relativedelta(years=1)).strftime('%Y-%m-%d'))
     end_date = input('Enter the strategy end date, in YYYY-MM-DD format (default: %s):' % (datetime.today().strftime('%Y-%m-%d'))) or (datetime.today().strftime('%Y-%m-%d'))
+    customerize_ind = input('Would you like to customerize the strategy parameters? Enter Y for yes; otherwise would use default value')
+    if customerize_ind.upper() == 'Y':
+        initial_cash = float(input('Enter the initial cash (default: %s):' % ('10000')) or (10000))
+        investment = float(input('Enter the investment amount for each purchase (default: %s):' % ('1000')) or (1000))
+        buy_threshold = int(input('If the stock price drops X percent, make a purchase. Enter X as an integer (default: %s):' % ('5')) or 5) / 100
+        sell_threshold = int(input('If the stock price rises X percent, make a sell. Enter X as an integer (default: %s):' % ('5')) or 5) / 100
+    else:
+        initial_cash = 10000
+        investment = 1000
+        buy_threshold = 0.05
+        sell_threshold = 0.05
     stock_df = download_stock_df(stock_name)
-    result = stock_trading_strategy(stock_df, start_date, end_date,10000, 1000, buy_threshold=0.05, sell_threshold=0.05, multiplier=1)
+    result = stock_trading_strategy(stock_df, start_date, end_date,initial_cash, 1000, buy_threshold=0.05, sell_threshold=0.05, multiplier=1)
     print('Strategy specifics:')
     print('    stock name: %s' %(stock_name))
     print('    strategy start date: %s, strategy end date: %s' %(start_date, end_date))
-    print('    initial cash: 10000, each investment: 1000, threshold: 0.05')
+    print('    initial cash: %s, each investment: %s, buy_threshold: %s, sell_threshold: %s' %(initial_cash, investment, buy_threshold, sell_threshold))
     print('\n')
     print('Final Profit:', ((result.iloc[-1]['total_stock_value'] + result.iloc[-1]['total_cash'])-10000))
     print('Underlying stock price change:', "{0:.02%}".format((result.iloc[-1]['daily_price']-result.iloc[0]['daily_price'])/result.iloc[0]['daily_price']))
