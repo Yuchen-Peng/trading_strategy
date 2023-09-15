@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import yfinance as yf
+import matplotlib.dates as mdates
+
 
 def stock_trading_strategy(stock_price_df, start_date, end_date, initial_cash, investment, buy_threshold=0.05, sell_threshold=0.05, multiplier=1):
     # initialize variables
@@ -134,11 +136,12 @@ def plot_trading_strategy(df_stock, result):
     plt.ylabel('Stock Price')
     plt.title('Stock Trading Strategy Visualization')
     plt.legend()
+    plt.grid(True, alpha=0.5)
 
     plt.show()
 
 
-def download_stock_df(stock_name, start_date='2020-01-01', end_date='2023-05-07', price='Open'):
+def download_stock_df(stock_name, start_date='2018-01-01', end_date=datetime.today().strftime('%Y-%m-%d'), price='Open'):
     '''
     Download the daily stock price from Yahoo Finance as a dataframe
     
@@ -181,7 +184,7 @@ def user_function():
         buy_threshold = 0.05
         sell_threshold = 0.05
     stock_df = download_stock_df(stock_name)
-    result = stock_trading_strategy(stock_df, start_date, end_date,initial_cash, 1000, buy_threshold=0.05, sell_threshold=0.05, multiplier=1)
+    result = stock_trading_strategy(stock_df, start_date, end_date,initial_cash, investment, buy_threshold=buy_threshold, sell_threshold=sell_threshold, multiplier=1)
     print('Strategy specifics:')
     print('    stock name: %s' %(stock_name))
     print('    strategy start date: %s, strategy end date: %s' %(start_date, end_date))
@@ -199,3 +202,60 @@ def user_function():
     print(result[result['action'].isin(['Purchase','Sell'])].head())
     plot_trading_strategy(stock_df, result)
 
+# create a custom function for the Candlestick chart
+
+def plot_candlestick(df: pd.DataFrame):
+    '''
+    Input: 
+    pd.Dataframe of daily stock data downloaded from Yahoo Finance
+    Need to the following columns: date, open, close, high, low, (volume)
+    '''
+    data = df.copy()
+    data.columns = data.columns.str.lower()
+    data['date'] = pd.to_datetime(data['date'])
+    data.set_index('date', inplace=True)
+
+    # Create a figure and an axis
+    fig, ax = plt.subplots(figsize=(16, 8))
+    ax.grid(True, alpha=0.5)
+
+    # Convert dates to mdates
+    mdates_data = data.reset_index()
+    mdates_data['date'] = mdates.date2num(mdates_data['date'])
+
+    # Plot candlesticks
+    for index, row in mdates_data.iterrows():
+        open_price = row['open']
+        close_price = row['close']
+        high_price = row['high']
+        low_price = row['low']
+        date = row['date']
+
+        if close_price >= open_price:
+            color = 'g'  # Green for bullish
+            rect_height = close_price - open_price
+            bottom = open_price
+        else:
+            color = 'r'  # Red for bearish
+            rect_height = open_price - close_price
+            bottom = close_price
+
+        # Plot candlestick body
+        ax.add_patch(plt.Rectangle((date - 0.4, bottom), 0.8, rect_height,
+                                    facecolor=color, edgecolor='black'))
+
+        # Plot upper wick
+        ax.plot([date, date], [high_price, max(open_price, close_price)],
+                color='black')
+
+        # Plot lower wick
+        ax.plot([date, date], [low_price, min(open_price, close_price)],
+                color='black')
+
+    # Customize the appearance and layout of the plot
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Price")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.grid()
+    
+    return ax
