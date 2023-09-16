@@ -106,6 +106,98 @@ def stock_trading_strategy(stock_price_df, start_date, end_date, initial_cash, i
         # concatenate the new row to the overall results dataframe
     return results_df
 
+def stock_trading_strategy_supp_resist(df,
+                             targeted_purchase_prices,
+                             targeted_sell_prices,
+                             initial_cash=10000,
+                             investment=1000,
+                             buy_threshold=0.05,
+                             sell_threshold=0.1,
+                            ):
+    cash = initial_cash
+    stock_units = 0
+    purchase_record = []
+    total_cash_records = []
+    total_num_shares_records = []
+    action_records = []
+    action_price_records = []
+    action_unit_records = []
+    
+    for index, row in df.iterrows():
+        date = row['date']
+        price = row['daily_price']
+        
+        # Check if there's no stock, and then evaluate whether to execute a purchase
+        if len(purchase_record) == 0:
+            # Check if the price is higher than the maximum targeted purchase price
+            if price > max(targeted_purchase_prices):
+                action = 'Pass'
+                action_price = 0
+                action_unit = 0
+            else:
+                # Find the purchase price
+                purchase_price = min([e for e in targeted_purchase_prices if e > price])
+                investment = min(cash, investment)
+                purchase_units = investment / purchase_price
+                purchase_record.append((purchase_price, purchase_units))
+                cash -= investment
+                stock_units += purchase_units
+                action = 'Purchase'
+                action_price = purchase_price
+                action_unit = purchase_units
+        
+        else:
+            # Now there are stock available, evaluate whether to sell or to purchase
+            # compare stock price with the latest purchase batch that is not sold
+            if any(e > price for e in targeted_purchase_prices if e < purchase_record[-1][0]*(1-buy_threshold)):
+                investment = min(cash, investment)
+                if investment > 0:
+                    purchase_price = max([e for e in targeted_purchase_prices if e < purchase_record[-1][0]*(1-buy_threshold)])
+                    purchase_units = investment / purchase_price
+                    purchase_record.append((purchase_price, purchase_units))
+                    cash -= investment
+                    stock_units += purchase_units
+                    action = 'Purchase'
+                    action_price = purchase_price
+                    action_unit = purchase_units
+                else:
+                    action = 'Pass'
+                    action_price = 0
+                    action_unit = 0
+            elif any(e < price for e in targeted_sell_prices if e > purchase_record[-1][0]*(1+sell_threshold)):
+                if len(purchase_record) > 0:
+                    sell_price = min([e for e in targeted_sell_prices if e > purchase_record[-1][0]*(1+sell_threshold)])
+                    sell_units = purchase_record[-1][1]
+
+                    cash += sell_units*sell_price
+                    stock_units -= sell_units
+                    purchase_record.remove(purchase_record[-1])
+                    action = 'Sell'
+                    action_price = sell_price
+                    action_unit = sell_units
+            else:
+                action = 'Pass'
+                action_price = 0
+                action_unit = 0
+                    
+        total_cash_records.append(cash)
+        total_num_shares_records.append(stock_units)
+        action_records.append(action)
+        action_price_records.append(action_price)
+        action_unit_records.append(action_unit)
+
+    
+    
+    # Create a DataFrame to store the records
+    records_df = pd.DataFrame({'date': df['date'],
+                               'daily_price': df['daily_price'],
+                               'action': action_records,
+                               'action_price': action_price_records,
+                               'action_unit': action_unit_records,
+                               'total_cash': total_cash_records,
+                               'total_num_shares': total_num_shares_records})
+    
+    return records_df, purchase_record
 
 def plot_trading_strategy(df_stock, result):
     # plot the daily stock prices as a curve
