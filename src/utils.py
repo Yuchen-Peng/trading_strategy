@@ -126,17 +126,19 @@ def stock_trading_strategy_supp_resist(df,
     for index, row in df.iterrows():
         date = row['date']
         price = row['daily_price']
+        price_low = row['Low']
+        price_high = row['High']
         
         # Check if there's no stock, and then evaluate whether to execute a purchase
         if len(purchase_record) == 0:
             # Check if the price is higher than the maximum targeted purchase price
-            if price > max(targeted_purchase_prices):
+            if price_low > max(targeted_purchase_prices):
                 action = 'Pass'
                 action_price = 0
                 action_unit = 0
             else:
                 # Find the purchase price
-                purchase_price = min([e for e in targeted_purchase_prices if e > price])
+                purchase_price = min([e for e in targeted_purchase_prices if e > price_low])
                 investment = min(cash, investment)
                 purchase_units = investment / purchase_price
                 purchase_record.append((purchase_price, purchase_units))
@@ -149,7 +151,7 @@ def stock_trading_strategy_supp_resist(df,
         else:
             # Now there are stock available, evaluate whether to sell or to purchase
             # compare stock price with the latest purchase batch that is not sold
-            if any(e > price for e in targeted_purchase_prices if e < purchase_record[-1][0]*(1-buy_threshold)):
+            if any(e > price_low for e in targeted_purchase_prices if e < purchase_record[-1][0]*(1-buy_threshold)):
                 investment = min(cash, investment)
                 if investment > 0:
                     purchase_price = max([e for e in targeted_purchase_prices if e < purchase_record[-1][0]*(1-buy_threshold)])
@@ -164,7 +166,7 @@ def stock_trading_strategy_supp_resist(df,
                     action = 'Pass'
                     action_price = 0
                     action_unit = 0
-            elif any(e < price for e in targeted_sell_prices if e > purchase_record[-1][0]*(1+sell_threshold)):
+            elif any(e < price_high for e in targeted_sell_prices if e > purchase_record[-1][0]*(1+sell_threshold)):
                 if len(purchase_record) > 0:
                     sell_price = min([e for e in targeted_sell_prices if e > purchase_record[-1][0]*(1+sell_threshold)])
                     sell_units = purchase_record[-1][1]
@@ -191,6 +193,8 @@ def stock_trading_strategy_supp_resist(df,
     # Create a DataFrame to store the records
     records_df = pd.DataFrame({'date': df['date'],
                                'daily_price': df['daily_price'],
+                               'low':df['Low'],
+                               'high':df['High'],
                                'action': action_records,
                                'action_price': action_price_records,
                                'action_unit': action_unit_records,
