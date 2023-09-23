@@ -10,7 +10,15 @@ import yfinance as yf
 import matplotlib.dates as mdates
 
 
-def stock_trading_strategy(stock_price_df, start_date, end_date, initial_cash, investment, buy_threshold=0.05, sell_threshold=0.05, multiplier=1):
+def stock_trading_strategy(
+    stock_price_df,
+    start_date,
+    end_date=datetime.today().strftime('%Y-%m-%d'),
+    initial_cash=10000,
+    investment=1000,
+    buy_threshold=0.05,
+    sell_threshold=0.05,
+    multiplier=1):
     # initialize variables
     num_shares = []
     total_cash = []
@@ -63,11 +71,123 @@ def stock_trading_strategy(stock_price_df, start_date, end_date, initial_cash, i
                 else:
                     total_cash.append(total_cash[-1] - min(curr_cash, investment))
                 batches.append((curr_price, num_shares_to_purchase))
+                batches.sort(reverse=True)
                 action.append('Purchase')
                 purchase_sell_action.append('Purchase')
                 num_shares_purchased.append(num_shares_to_purchase)
                 num_shares_sold.append(0)
                 curr_cash -= min(curr_cash, investment)
+        elif curr_price >= batches[-1][0] * (1+sell_threshold):
+            # sell
+            num_shares_to_sell = batches[-1][1]
+            num_shares.append(num_shares[-1] - num_shares_to_sell)
+            total_cash.append(total_cash[-1] + num_shares_to_sell * curr_price)
+            batches.pop()
+            # this batch is sold
+            action.append('Sell')
+            purchase_sell_action.append('Sell')
+            num_shares_purchased.append(0)
+            num_shares_sold.append(num_shares_to_sell)
+            curr_cash += num_shares_to_sell * curr_price
+        else:
+            # pass
+            action.append('Pass')
+            num_shares_purchased.append(0)
+            num_shares_sold.append(0)
+            total_cash.append(total_cash[-1])
+            num_shares.append(num_shares[-1])
+
+        
+        # add the results to a new dataframe row
+        results_df = pd.DataFrame({
+            'date': action_date,
+            'daily_price':stock_price,
+            'action': action,
+            'num_shares_purchased': num_shares_purchased,
+            'purchase_value':np.array(stock_price)*np.array(num_shares_purchased),
+            'num_shares_sold': num_shares_sold,
+            'sell_value':np.array(stock_price)*np.array(num_shares_sold),
+            'total_num_shares': num_shares,
+            'total_stock_value':np.array(stock_price)*np.array(num_shares),
+            'total_cash': total_cash
+        })
+        
+        # concatenate the new row to the overall results dataframe
+    return results_df
+
+def stock_trading_strategy_backwards(
+    stock_price_df,
+    start_date,
+    end_date=datetime.today().strftime('%Y-%m-%d'),
+    initial_num_shares=100,
+    buy_threshold=0.05,
+    sell_threshold=0.05,
+    multiplier=1):
+    """
+    Start with initial batch of stock handy instead
+    """
+    stock_action_df = stock_price_df[stock_price_df['date'].between(start_date, end_date)]
+    initial_price = stock_action_df.iloc[0]['daily_price']
+
+    action_date = [start_date]
+    stock_price = [initial_price]
+    action = ['Pass']
+    num_shares_purchased = [initial_num_shares]
+    num_shares_sold = [0]
+    num_shares = [initial_num_shares]
+    total_cash = [0]
+    
+    curr_num_shares = initial_num_shares   
+    purchase_sell_action = ['Purchase']*10
+    curr_cash = 0
+
+    # initial_price is the same as last_price
+    # first_price = initial_price / (1-buy_threshold)**9
+    # purchased_prices = [first_price * (1-buy_threshold)**i for i in range(0,10)] = [initial_price * (1-buy_threshold)**(i-9) for i in range(0,10)]
+    # sum(first_investment*multiplier**i/purchased_prices[i] for i in range(0,10)] = initial_num_shares
+    purchased_prices = [initial_price * (1-buy_threshold)**(i-9) for i in range(0,10)]
+    highest_price = purchased_prices[0]    
+    first_investment = initial_num_shares/sum([multiplier**i/purchased_prices[i] for i in range(0,10)])
+    investment = first_investment*multiplier**9
+    batches = [(purchased_prices[i], first_investment*multiplier**i/purchased_prices[i]) for i in range(0,10)]
+    for i in range(1,len(stock_action_df)):
+        # get the current price and date
+        curr_price = stock_action_df.iloc[i]['daily_price']
+        curr_date = stock_action_df.iloc[i]['date']
+        action_date.append(curr_date)
+        stock_price.append(curr_price)
+        if len(batches) == 0 or curr_price <= batches[-1][0] * (1-buy_threshold):
+            if curr_price > highest_price or curr_price < initial_price * (1-buy_threshold):
+                # pass: if the price is too high or too low - we don't have infinite cash reserve
+                action.append('Pass')
+                num_shares_purchased.append(0)
+                num_shares_sold.append(0)
+                total_cash.append(total_cash[-1])
+                num_shares.append(num_shares[-1])
+            else:
+                if purchase_sell_action[-1] == 'Purchase':
+                    # increase investment amount at each purchase if the price keeps dropping
+                    investment = investment * multiplier
+                elif purchase_sell_action[-1] == 'Sell' and purchase_sell_action[-2] == 'Sell':
+                    # reset investment amount as price begins to increase
+                    investment = investment / multiplier
+                else:
+                    pass
+                # purchase
+                num_shares_to_purchase = min(curr_cash, investment) / curr_price
+                num_shares.append(num_shares[-1] + num_shares_to_purchase)
+                total_cash.append(total_cash[-1] - min(curr_cash, investment))
+                if curr_cash == 0:
+                    action.append('Pass')
+                else:
+                    action.append('Purchase')
+                    purchase_sell_action.append('Purchase')
+                    batches.append((curr_price, num_shares_to_purchase))
+                    batches.sort(reverse=True)
+                num_shares_purchased.append(num_shares_to_purchase)
+                num_shares_sold.append(0)
+                curr_cash -= min(curr_cash, investment)
+                
         elif curr_price >= batches[-1][0] * (1+sell_threshold):
             # sell
             num_shares_to_sell = batches[-1][1]
@@ -237,7 +357,7 @@ def plot_trading_strategy(df_stock, result):
     plt.show()
 
 
-def download_stock_df(stock_name, start_date='2018-01-01', end_date=datetime.today().strftime('%Y-%m-%d'), price='Open'):
+def download_stock_df(stock_name, start_date='2018-01-01', end_date=datetime.today().strftime('%Y-%m-%d'), price='Close'):
     '''
     Download the daily stock price from Yahoo Finance as a dataframe
     
@@ -296,11 +416,11 @@ def user_function():
     print('\n')
     print('Transaction samples:')
     print(result[result['action'].isin(['Purchase','Sell'])].head())
-    plot_trading_strategy(stock_df, result)
+    plot_trading_strategy(stock_df[stock_df['date']>=start_date], result)
 
 # create a custom function for the Candlestick chart
 
-def plot_candlestick(df: pd.DataFrame):
+def plot_candlestick(df: pd.DataFrame, figsize=(16, 8)):
     '''
     Input: 
     pd.Dataframe of daily stock data downloaded from Yahoo Finance
@@ -312,7 +432,7 @@ def plot_candlestick(df: pd.DataFrame):
     data.set_index('date', inplace=True)
 
     # Create a figure and an axis
-    fig, ax = plt.subplots(figsize=(16, 8))
+    fig, ax = plt.subplots(figsize=figsize)
     ax.grid(True, alpha=0.5)
 
     # Convert dates to mdates
