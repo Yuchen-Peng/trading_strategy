@@ -209,21 +209,150 @@ def stock_trading_strategy_backwards(
             num_shares.append(num_shares[-1])
 
         
-        # add the results to a new dataframe row
-        results_df = pd.DataFrame({
-            'date': action_date,
-            'daily_price':stock_price,
-            'action': action,
-            'num_shares_purchased': num_shares_purchased,
-            'purchase_value':np.array(stock_price)*np.array(num_shares_purchased),
-            'num_shares_sold': num_shares_sold,
-            'sell_value':np.array(stock_price)*np.array(num_shares_sold),
-            'total_num_shares': num_shares,
-            'total_stock_value':np.array(stock_price)*np.array(num_shares),
-            'total_cash': total_cash
-        })
+    # add the results to a new dataframe row
+    results_df = pd.DataFrame({
+        'date': action_date,
+        'daily_price':stock_price,
+        'action': action,
+        'num_shares_purchased': num_shares_purchased,
+        'purchase_value':np.array(stock_price)*np.array(num_shares_purchased),
+        'num_shares_sold': num_shares_sold,
+        'sell_value':np.array(stock_price)*np.array(num_shares_sold),
+        'total_num_shares': num_shares,
+        'total_stock_value':np.array(stock_price)*np.array(num_shares),
+        'total_cash': total_cash
+    })
         
-        # concatenate the new row to the overall results dataframe
+    # concatenate the new row to the overall results dataframe
+    return results_df
+
+def stock_trading_strategy_finer(
+    stock_price_df,
+    start_date,
+    end_date=datetime.today().strftime('%Y-%m-%d'),
+    initial_cash=10000,
+    investment=1000,
+    buy_threshold=0.05,
+    sell_threshold=0.05,
+    multiplier=1):
+    '''
+    Set stock purchase / sell price beforehand, and check if it's within the daily stock range
+    (between high and low) to see whether it's executable.
+    Args:
+        stock_price_df: dataframe of daily stock price, containing open, close, high, low
+    Output:
+        results_df: containing daily trade record
+    '''
+    # initialize variables
+    num_shares = []
+    total_cash = []
+    num_shares_purchased = []
+    num_shares_sold = []
+    batches = []
+    action = []
+    action_price = []
+    buy_price_planned = []
+    sell_price_planned = []
+    purchase_sell_action = []
+    curr_cash = initial_cash
+    # loop through each day in the dataframe
+    stock_action_df = stock_price_df[stock_price_df['date'].between(start_date, end_date)]
+    initial_price = stock_action_df.iloc[0]['close']
+    for i in range(len(stock_action_df)):
+        # set buy_price and sell_price
+        if len(batches) == 0:
+            buy_price = stock_action_df.iloc[i]['close']
+            sell_price = np.nan
+        else:
+            buy_price = batches[-1][0] * (1-buy_threshold)
+            sell_price = batches[-1][0] * (1+sell_threshold)
+        buy_price_planned.append(buy_price)
+        sell_price_planned.append(sell_price)
+        # check if we should purchase, sell, or pass
+        if len(batches) == 0 or buy_price > stock_action_df.iloc[i]['low']:
+            if buy_price > initial_price:
+                # pass
+                action.append('Pass')
+                num_shares_purchased.append(0)
+                num_shares_sold.append(0)
+                action_price.append(np.nan)
+                total_cash.append(total_cash[-1])
+                num_shares.append(num_shares[-1])
+            else:
+                if len(purchase_sell_action) == 0:
+                    pass
+                elif purchase_sell_action[-1] == 'Purchase':
+                    # increase investment amount at each purchase if the price keeps dropping
+                    investment = investment * multiplier
+                elif purchase_sell_action[-1] == 'Sell' and purchase_sell_action[-2] == 'Sell':
+                    # reset investment amount as price begins to increase
+                    investment = investment / multiplier
+                else:
+                    pass
+                # purchase
+                buy_price = min(buy_price, stock_action_df.iloc[i]['close'])
+                num_shares_to_purchase = min(curr_cash, investment) / buy_price
+                if len(num_shares) == 0:
+                    num_shares.append(num_shares_to_purchase)
+                else:
+                    num_shares.append(num_shares[-1] + num_shares_to_purchase)
+                if len(total_cash) == 0:
+                    total_cash.append(initial_cash - min(curr_cash, investment))
+                else:
+                    total_cash.append(total_cash[-1] - min(curr_cash, investment))
+                batches.append((buy_price, num_shares_to_purchase))
+                batches.sort(reverse=True)
+                action.append('Purchase')
+                action_price.append(buy_price)
+                purchase_sell_action.append('Purchase')
+                num_shares_purchased.append(num_shares_to_purchase)
+                num_shares_sold.append(0)
+                curr_cash -= min(curr_cash, investment)
+        elif sell_price < stock_action_df.iloc[i]['high']:
+            # sell
+            num_shares_to_sell = batches[-1][1]
+            num_shares.append(num_shares[-1] - num_shares_to_sell)
+            batches.pop()
+            # this batch is sold
+            action.append('Sell')
+            sell_price = max(sell_price, stock_action_df.iloc[i]['close'])
+            total_cash.append(total_cash[-1] + num_shares_to_sell * sell_price)
+            action_price.append(sell_price)
+            purchase_sell_action.append('Sell')
+            num_shares_purchased.append(0)
+            num_shares_sold.append(num_shares_to_sell)
+            curr_cash += num_shares_to_sell * sell_price
+        else:
+            # pass
+            action.append('Pass')
+            action_price.append(np.nan)
+            num_shares_purchased.append(0)
+            num_shares_sold.append(0)
+            total_cash.append(total_cash[-1])
+            num_shares.append(num_shares[-1])
+
+        
+    # add the results to a new dataframe row
+    results_df = pd.DataFrame({
+        'date': stock_action_df['date'].tolist(),
+        'open':stock_action_df['open'].tolist(),
+        'close':stock_action_df['close'].tolist(),
+        'high':stock_action_df['high'].tolist(),
+        'low':stock_action_df['low'].tolist(),
+        'action': action,
+        'action_price':action_price,
+        'buy_price_planned':buy_price_planned,
+        'sell_price_planned':sell_price_planned,
+        'num_shares_purchased': num_shares_purchased,
+        'purchase_value':np.array(action_price)*np.array(num_shares_purchased),
+        'num_shares_sold': num_shares_sold,
+        'sell_value':np.array(action_price)*np.array(num_shares_sold),
+        'total_num_shares': num_shares,
+        'total_stock_value':np.array(stock_action_df['close'])*np.array(num_shares),
+        'total_cash': total_cash
+    })
+
+    # concatenate the new row to the overall results dataframe
     return results_df
 
 def stock_trading_strategy_supp_resist(df,
@@ -331,7 +460,7 @@ def plot_trading_strategy(df_stock, result):
 
     # plot the purchase actions as red dots
     purchases = result[result['action'] == 'Purchase']
-    plt.scatter(purchases['date'], purchases['daily_price'], color='red', label='Purchase')
+    plt.scatter(purchases['date'], purchases['daily_price'], s=100, marker='^', color='green', label='Purchase')
 
     for index, row in purchases.iterrows():
         # plt.text(row['date'], row['daily_price'], row['daily_price'], ha='center', va='bottom')
@@ -340,13 +469,47 @@ def plot_trading_strategy(df_stock, result):
 
     # plot the sell actions as blue dots
     sells = result[result['action'] == 'Sell']
-    plt.scatter(sells['date'], sells['daily_price'], color='blue', label='Sell')
+    plt.scatter(sells['date'], sells['daily_price'], s=100, marker='v', color='red', label='Sell')
 
 
     for index, row in sells.iterrows():
         # plt.text(row['date'], row['daily_price'], row['daily_price'], ha='center', va='bottom')
         plt.annotate(f"{row['daily_price']:.2f}", xy=(row['date'], row['daily_price']), 
                      xytext=(row['date'], row['daily_price']*0.98), ha='center', va='top')
+
+    plt.xlabel('Date')
+    plt.ylabel('Stock Price')
+    plt.title('Stock Trading Strategy Visualization')
+    plt.legend()
+    plt.grid(True, alpha=0.5)
+
+    plt.show()
+
+def plot_trading_strategy_finer(result):
+    # plot the daily stock prices as a curve
+    plt.figure(figsize=(16, 8))
+    plt.plot(result['date'], result['close'], label='Stock Daily Close Price')
+    plt.fill_between(result['date'], result['low'], result['high'], color='gray', alpha=0.3, label='Daily Price Range')
+
+
+    # plot the purchase actions as red dots
+    purchases = result[result['action'] == 'Purchase']
+    plt.scatter(purchases['date'], purchases['action_price'], s=100, marker='^', color='green', label='Purchase')
+
+    for index, row in purchases.iterrows():
+        # plt.text(row['date'], row['daily_price'], row['daily_price'], ha='center', va='bottom')
+        plt.annotate(f"{row['action_price']:.2f}", xy=(row['date'], row['action_price']), 
+                     xytext=(row['date'], row['action_price']*0.98), ha='center', va='top')
+
+    # plot the sell actions as blue dots
+    sells = result[result['action'] == 'Sell']
+    plt.scatter(sells['date'], sells['action_price'], s=100, marker='v', color='red', label='Sell')
+
+
+    for index, row in sells.iterrows():
+        # plt.text(row['date'], row['daily_price'], row['daily_price'], ha='center', va='bottom')
+        plt.annotate(f"{row['action_price']:.2f}", xy=(row['date'], row['action_price']), 
+                     xytext=(row['date'], row['action_price']*0.98), ha='center', va='top')
 
     plt.xlabel('Date')
     plt.ylabel('Stock Price')
@@ -381,10 +544,41 @@ def download_stock_df(stock_name, start_date='2018-01-01', end_date=datetime.tod
     df_stock_price['daily_price'] = df_stock_price['daily_price'].clip(lower=0)
     return df_stock_price
 
-
+def download_stock_df_full(stock_name,
+                           start_date='2018-01-01',
+                           end_date=datetime.today().strftime('%Y-%m-%d')):
+    '''
+    Download the daily stock price from Yahoo Finance as a dataframe, including Open, Close, High, Low
+    
+    Input:
+    stock_name: string, stock name
+    start_date: string, 'YYYY-MM-DD' format of date specifying the date range
+    end_date: string, 'YYYY-MM-DD' format of date specifying the date range
+    
+    Output:
+    df_stock_price: dataframe, with two columns: date, daily_price
+        where daily_price is the stock open price by default
+    '''
+    # Download historical data from Yahoo Finance for AAPL
+    data = yf.download(stock_name.upper(), start=start_date, end=end_date)
+    data.columns = data.columns.str.lower()
+    # Extract the daily closing prices and reset the index
+    prices = ['open','high','low','close']
+    df_stock_price = data[prices].reset_index()
+    # Rename the columns to match the desired format
+    df_stock_price.columns = ['date', 'open','high','low','close']
+    # Ensure all prices are non-negative
+    for e in prices:
+        df_stock_price[e] = df_stock_price[e].clip(lower=0)
+    return df_stock_price
 
 # Create a user function
 def user_function():
+    '''
+    Return the result of strategy on arbitrary stock
+    if func=='default': use stock_trading_strategy
+    if func=='finer': use stock_trading_strategy_finer
+    '''
     stock_name = (input('Enter the stock name:')).upper()
     start_date = input('Enter the strategy start date, in YYYY-MM-DD format (default: %s):' % ((datetime.today() - relativedelta(years=1)).strftime('%Y-%m-%d'))) or ((datetime.today() - relativedelta(years=1)).strftime('%Y-%m-%d'))
     end_date = input('Enter the strategy end date, in YYYY-MM-DD format (default: %s):' % (datetime.today().strftime('%Y-%m-%d'))) or (datetime.today().strftime('%Y-%m-%d'))
@@ -394,29 +588,54 @@ def user_function():
         investment = float(input('Enter the investment amount for each purchase (default: %s):' % ('1000')) or (1000))
         buy_threshold = int(input('If the stock price drops X percent, make a purchase. Enter X as an integer (default: %s):' % ('5')) or 5) / 100
         sell_threshold = int(input('If the stock price rises X percent, make a sell. Enter X as an integer (default: %s):' % ('5')) or 5) / 100
+        func_use = input('Would you like to use the finer strategy? Enter Y for yes, otherwise use default' or 'N')
     else:
         initial_cash = 10000
         investment = 1000
         buy_threshold = 0.05
         sell_threshold = 0.05
-    stock_df = download_stock_df(stock_name)
-    result = stock_trading_strategy(stock_df, start_date, end_date,initial_cash, investment, buy_threshold=buy_threshold, sell_threshold=sell_threshold, multiplier=1)
-    print('Strategy specifics:')
-    print('    stock name: %s' %(stock_name))
-    print('    strategy start date: %s, strategy end date: %s' %(start_date, end_date))
-    print('    initial cash: %s, each investment: %s, buy_threshold: %s, sell_threshold: %s' %(initial_cash, investment, buy_threshold, sell_threshold))
-    print('\n')
-    print('Final Profit:', ((result.iloc[-1]['total_stock_value'] + result.iloc[-1]['total_cash'])-10000))
-    print('Underlying stock price change:', "{0:.02%}".format((result.iloc[-1]['daily_price']-result.iloc[0]['daily_price'])/result.iloc[0]['daily_price']))
-    print('Max Profit ever:', (result['total_stock_value']+result['total_cash']).max() - 10000)
-    print('Max Loss ever:', (result['total_stock_value']+result['total_cash']).min() - 10000)
+        func_use = 'default'
+    if func_use.lower() != 'y': 
+        stock_df = download_stock_df(stock_name)
+        result = stock_trading_strategy(stock_df, start_date, end_date,initial_cash, investment, buy_threshold=buy_threshold, sell_threshold=sell_threshold, multiplier=1)
+        print('Strategy specifics:')
+        print('    stock name: %s' %(stock_name))
+        print('    strategy start date: %s, strategy end date: %s' %(start_date, end_date))
+        print('    initial cash: %s, each investment: %s, buy_threshold: %s, sell_threshold: %s' %(initial_cash, investment, buy_threshold, sell_threshold))
+        print('    strategy used: default')
+        print('\n')
+        print('Final Profit:', ((result.iloc[-1]['total_stock_value'] + result.iloc[-1]['total_cash'])-10000))
+        print('Underlying stock price change:', "{0:.02%}".format((result.iloc[-1]['daily_price']-result.iloc[0]['daily_price'])/result.iloc[0]['daily_price']))
+        print('Max Profit ever:', (result['total_stock_value']+result['total_cash']).max() - 10000)
+        print('Max Loss ever:', (result['total_stock_value']+result['total_cash']).min() - 10000)
 
-    print('Number of Purchase & Sell actions:', result[result['action'].isin(['Purchase','Sell'])].shape[0])
-    print('Minimal Cash Reserved: ', result['total_cash'].min())
-    print('\n')
-    print('Transaction samples:')
-    print(result[result['action'].isin(['Purchase','Sell'])].head())
-    plot_trading_strategy(stock_df[stock_df['date']>=start_date], result)
+        print('Number of Purchase & Sell actions:', result[result['action'].isin(['Purchase','Sell'])].shape[0])
+        print('Minimal Cash Reserved: ', result['total_cash'].min())
+        print('\n')
+        print('Transaction samples:')
+        print(result[result['action'].isin(['Purchase','Sell'])].head())
+        plot_trading_strategy(stock_df[stock_df['date']>=start_date], result)
+    else:
+        stock_df = download_stock_df_full(stock_name)
+        result = stock_trading_strategy_finer(stock_df, start_date, end_date,initial_cash, investment, buy_threshold=buy_threshold, sell_threshold=sell_threshold, multiplier=1)
+        print('Strategy specifics:')
+        print('    stock name: %s' %(stock_name))
+        print('    strategy start date: %s, strategy end date: %s' %(start_date, end_date))
+        print('    initial cash: %s, each investment: %s, buy_threshold: %s, sell_threshold: %s' %(initial_cash, investment, buy_threshold, sell_threshold))
+        print('    strategy used: finer')
+        print('\n')
+        print('Final Profit:', ((result.iloc[-1]['total_stock_value'] + result.iloc[-1]['total_cash'])-10000))
+        print('Underlying stock price change:', "{0:.02%}".format((result.iloc[-1]['close']-result.iloc[0]['close'])/result.iloc[0]['close']))
+        print('Max Profit ever:', (result['total_stock_value']+result['total_cash']).max() - 10000)
+        print('Max Loss ever:', (result['total_stock_value']+result['total_cash']).min() - 10000)
+
+        print('Number of Purchase & Sell actions:', result[result['action'].isin(['Purchase','Sell'])].shape[0])
+        print('Minimal Cash Reserved: ', result['total_cash'].min())
+        print('\n')
+        print('Transaction samples:')
+        print(result[result['action'].isin(['Purchase','Sell'])].head())
+        plot_trading_strategy_finer(result)
+
 
 # create a custom function for the Candlestick chart
 
