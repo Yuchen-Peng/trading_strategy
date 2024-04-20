@@ -123,9 +123,7 @@ class stock_strategy:
         stock_name: str,
         start: datetime = (datetime.today() - relativedelta(years=3)).strftime('%Y-%m-%d'),
         end: datetime = datetime.today().strftime('%Y-%m-%d'),
-        strategy: str = 'longterm',
         saturation_point: float = 0.05,
-        interactive_plot: bool = False,
         impute: bool = False,
         ):
         self.stock_name = stock_name
@@ -141,11 +139,7 @@ class stock_strategy:
         self.create_bb()
         self.calculate_rsi()
         self.create_macd()
-        if strategy == 'daily':
-            self.low_centers, self.high_centers = self.support_and_resistance(saturation_point)
-
-        self.print_info(strategy)
-        self.plot_chart(strategy, interactive_plot)
+        self.low_centers, self.high_centers = self.support_and_resistance(saturation_point)
 
     def calculate_ema(self):
         '''
@@ -408,6 +402,13 @@ class stock_strategy:
             
             plt.tight_layout()
             plt.show()
+
+    def output(self, strategy: str = 'longterm', interactive_plot: bool = False): 
+    	'''        
+    	Call print_info and plot_chart to output result
+    	'''
+    	self.print_info(strategy)
+    	self.plot_chart(strategy, interactive_plot)
 
     def return_result(self):
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
