@@ -187,9 +187,9 @@ class stock_strategy:
         Calculate support and resistance using KMean
         '''
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-        	df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
         else:
-        	df_plot = self.df
+            df_plot = self.df
         low_clusters = get_optimum_clusters(df_plot[(df_plot['low']!=df_plot['open'])&(df_plot['low']!=df_plot['close'])][['date',"low"]].set_index('date'), saturation_point)
         # low_clusters = get_optimum_clusters(df_plot[['date',"low"]].set_index('date'))
         low_centers = low_clusters.cluster_centers_
@@ -207,9 +207,9 @@ class stock_strategy:
         '''
         previous_day = self.df[self.df['date']<datetime.today().strftime('%Y-%m-%d')]['date'].max()
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-        	df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
         else:
-        	df_plot = self.df
+            df_plot = self.df
         close = df_plot[df_plot['date']==previous_day]['close'].item()
         if strategy == 'daily':
             try:
@@ -332,9 +332,9 @@ class stock_strategy:
         * MACD
         '''
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-        	df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
         else:
-        	df_plot = self.df
+            df_plot = self.df
         if strategy == 'daily':
             ax = plot_candlestick(df_plot, figsize=(32,8))
             ax.set_title(self.stock_name.upper())
@@ -404,15 +404,57 @@ class stock_strategy:
             plt.show()
 
     def output(self, strategy: str = 'longterm', interactive_plot: bool = False): 
-    	'''        
-    	Call print_info and plot_chart to output result
-    	'''
-    	self.print_info(strategy)
-    	self.plot_chart(strategy, interactive_plot)
+        '''        
+        Call print_info and plot_chart to output result
+        '''
+        self.print_info(strategy)
+        self.plot_chart(strategy, interactive_plot)
 
     def return_result(self):
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-        	df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
         else:
-        	df_plot = self.df
+            df_plot = self.df
         return df_plot
+
+    def latest_metric(self, realtime=True):
+        '''
+        Pulling latest metrics of RSI and MACD, using latest realtime stock price
+        If realtime=False: impute latest close price instead
+        '''
+        if realtime:
+            new_price = yf.Ticker(self.stock_name.upper()).history(period='1d')['Close'].tolist()
+        else:
+            new_price = self.df.tail(1)['close'].tolist()
+
+        df_check = pd.concat([
+            self.df,
+            pd.DataFrame(
+                {
+                'date':[datetime.today().strftime('%Y-%m-%d')],
+                'close':new_price}
+                )
+            ], ignore_index=True)
+        df_check['12 Day EMA'] = df_check['close'].ewm(span=12, adjust=False).mean()
+        df_check['26 Day EMA'] = df_check['close'].ewm(span=26, adjust=False).mean()
+        df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
+        df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
+        delta = df_check['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df_check['RSI'] = 100 - (100 / (1 + rs))
+        latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
+        if latest_rsi > 70:
+            print("Current RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
+        elif latest_rsi < 30:
+            print("Current RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
+        else:
+            print("Current RSI:", latest_rsi, Style.RESET_ALL)
+        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
+        if latest_macd < 0:
+            print("Current MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
+        elif latest_macd > 0:
+            print("Current MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
+        else:
+            print("Current MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
