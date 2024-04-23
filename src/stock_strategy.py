@@ -417,15 +417,17 @@ class stock_strategy:
             df_plot = self.df
         return df_plot
 
-    def latest_metric(self, realtime=True):
+    def latest_metric(self, realtime=True, imputed_value=None):
         '''
         Pulling latest metrics of RSI and MACD, using latest realtime stock price
-        If realtime=False: impute latest close price instead
+        If realtime=False: impute latest close price or provided value instead
         '''
         if realtime:
             new_price = yf.Ticker(self.stock_name.upper()).history(period='1d')['Close'].tolist()
-        else:
+        elif imputed_value is None:
             new_price = self.df.tail(1)['close'].tolist()
+        else:
+        	new_price = [imputed_value]
 
         df_check = pd.concat([
             self.df,
