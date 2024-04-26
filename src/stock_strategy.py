@@ -272,6 +272,8 @@ class stock_strategy:
         
         last_19day_price = df['close'][-20:-1]
         last_49day_price = df['close'][-50:-1]
+        last_199day_price = df['close'][-200:-1]
+
         # last_19day_price = df[df['date'].between(
         #     (datetime.today()-relativedelta(days=19)).strftime('%Y-%m-%d'),
         #     (datetime.today()-relativedelta(days=1)).strftime('%Y-%m-%d'))]['close']
@@ -300,6 +302,11 @@ class stock_strategy:
         # price_solution = fsolve(func_20MA_LBB, price_initial_guess)
         # price_solution = fsolve(func_50MA_UBB, price_initial_guess)
         # price_solution = fsolve(func_50MA_LBB, price_initial_guess)
+
+        if (2*last_49day_price.sum() - 5*last_19day_price.sum())/3 > 0:
+        	print('20MA crosses 50MA at', round((2*last_49day_price.sum() - 5*last_19day_price.sum())/3, 2))
+        if (last_199day_price.sum() - 4*last_49day_price.sum())/3 > 0:
+        	print('50MA crosses 200MA at', round((last_199day_price.sum() - 4*last_49day_price.sum())/3, 2))
 
         a1 = np.sum(last_19day_price)
         a2 = np.sum(last_19day_price**2)
@@ -460,3 +467,47 @@ class stock_strategy:
             print("Current MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
         else:
             print("Current MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
+
+    def infer_metric(self, realtime=True, imputed_value=None):
+        '''
+        Assuming the current stock price holds for another day, what would be MACD or RSI?
+        If realtime=False: impute latest close price or provided value instead
+        '''
+        if realtime:
+            new_price = yf.Ticker(self.stock_name.upper()).history(period='1d')['Close'].tolist()
+        elif imputed_value is None:
+            new_price = self.df.tail(1)['close'].tolist()
+        else:
+        	new_price = [imputed_value]
+
+        df_check = pd.concat([
+            self.df,
+            pd.DataFrame(
+                {
+                'date':[datetime.today().strftime('%Y-%m-%d'), (datetime.today() + relativedelta(days=1)).strftime('%Y-%m-%d')],
+                'close':new_price*2}
+                )
+            ], ignore_index=True)
+        df_check['12 Day EMA'] = df_check['close'].ewm(span=12, adjust=False).mean()
+        df_check['26 Day EMA'] = df_check['close'].ewm(span=26, adjust=False).mean()
+        df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
+        df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
+        delta = df_check['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df_check['RSI'] = 100 - (100 / (1 + rs))
+        latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
+        if latest_rsi > 70:
+            print("Tomorrow inferred RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
+        elif latest_rsi < 30:
+            print("Tomorrow inferred RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
+        else:
+            print("Tomorrow inferred RSI:", latest_rsi, Style.RESET_ALL)
+        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
+        if latest_macd < 0:
+            print("Tomorrow inferred MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
+        elif latest_macd > 0:
+            print("Tomorrow inferred MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
+        else:
+            print("Tomorrow inferred MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
