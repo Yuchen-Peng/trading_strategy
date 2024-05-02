@@ -181,6 +181,7 @@ class stock_strategy:
         self.df['MACD'] = self.df['12 Day EMA'] - self.df['26 Day EMA']
         # Calculate signal line (9-period EMA of MACD line)
         self.df['MACD_signal'] = self.df['MACD'].ewm(span=9, adjust=False).mean()
+        self.df['MACD_diff'] = self.df['MACD'] - self.df['MACD_signal']
 
     def support_and_resistance(self, saturation_point):
         '''
@@ -241,7 +242,7 @@ class stock_strategy:
         else:
             print("Latest RSI:", latest_rsi, Style.RESET_ALL)
 
-        latest_macd = round(self.df[self.df['date']==previous_day]['MACD'].item() - self.df[self.df['date']==previous_day]['MACD_signal'].item(), 2)
+        latest_macd = round(self.df[self.df['date']==previous_day]['MACD_diff'].item(), 2)
         if latest_macd < 0:
             print("Latest MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
         elif latest_macd > 0:
