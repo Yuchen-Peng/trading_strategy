@@ -261,7 +261,7 @@ class stock_strategy:
         Solve for the break point solution price for breaking the current MA/BB
         '''
         df = yf.download(self.stock_name.upper(),
-                     start=(datetime.today() - relativedelta(days=100)).strftime('%Y-%m-%d'),
+                     start=(datetime.today() - relativedelta(days=200)).strftime('%Y-%m-%d'),
                      end=datetime.today().strftime('%Y-%m-%d')
                      )
         df = df.reset_index()
@@ -305,9 +305,9 @@ class stock_strategy:
         # price_solution = fsolve(func_50MA_LBB, price_initial_guess)
 
         if (2*last_49day_price.sum() - 5*last_19day_price.sum())/3 > 0:
-        	print('20MA crosses 50MA at', round((2*last_49day_price.sum() - 5*last_19day_price.sum())/3, 2))
+            print('20MA crosses 50MA at', round((2*last_49day_price.sum() - 5*last_19day_price.sum())/3, 2))
         if (last_199day_price.sum() - 4*last_49day_price.sum())/3 > 0:
-        	print('50MA crosses 200MA at', round((last_199day_price.sum() - 4*last_49day_price.sum())/3, 2))
+            print('50MA crosses 200MA at', round((last_199day_price.sum() - 4*last_49day_price.sum())/3, 2))
 
         a1 = np.sum(last_19day_price)
         a2 = np.sum(last_19day_price**2)
@@ -435,7 +435,7 @@ class stock_strategy:
         elif imputed_value is None:
             new_price = self.df.tail(1)['close'].tolist()
         else:
-        	new_price = [imputed_value]
+            new_price = [imputed_value]
 
         df_check = pd.concat([
             self.df,
@@ -479,7 +479,7 @@ class stock_strategy:
         elif imputed_value is None:
             new_price = self.df.tail(1)['close'].tolist()
         else:
-        	new_price = [imputed_value]
+            new_price = [imputed_value]
 
         df_check = pd.concat([
             self.df,
