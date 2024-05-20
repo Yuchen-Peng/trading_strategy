@@ -125,8 +125,10 @@ class stock_strategy:
         end: datetime = datetime.today().strftime('%Y-%m-%d'),
         saturation_point: float = 0.05,
         impute: bool = False,
+        strategy: str = 'longterm',
         ):
         self.stock_name = stock_name
+        self.strategy = strategy
         if self.stock_name == 'fbtc' and impute:
             self.df = stock_correlation(stock_name1='BTC-USD', stock_name2='fbtc')
         else:    
@@ -135,11 +137,15 @@ class stock_strategy:
                 end=end)
             self.df = self.df.reset_index()
             self.df.columns = self.df.columns.str.lower()
+        self.ticker = yf.Ticker(self.stock_name.upper()).history(period='1d')
         self.calculate_ema()
         self.create_bb()
         self.calculate_rsi()
         self.create_macd()
-        self.low_centers, self.high_centers = self.support_and_resistance(saturation_point)
+        if self.strategy == 'daily':
+            self.low_centers, self.high_centers = self.support_and_resistance(saturation_point)
+
+
 
     def calculate_ema(self):
         '''
@@ -202,7 +208,7 @@ class stock_strategy:
         high_centers = np.sort(high_centers, axis=0)
         return low_centers, high_centers
 
-    def print_info(self, strategy: str):
+    def print_info(self):
         '''
         Print out the information needed
         '''
@@ -212,7 +218,7 @@ class stock_strategy:
         else:
             df_plot = self.df
         close = df_plot[df_plot['date']==previous_day]['close'].item()
-        if strategy == 'daily':
+        if self.strategy == 'daily':
             try:
                 support = max([e[0] for e in self.low_centers if e < close])
             except:
@@ -224,7 +230,7 @@ class stock_strategy:
                 print('Break all resistance; record max stock price')
                 resistance = df_plot['high'].max()
             print('* previous stock price closing', round(close,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
-        elif strategy == 'longterm':
+        elif self.strategy == 'longterm':
             print('* previous stock price closing', round(close,2))
         print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
         print("Latest Lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 20MA'].item(), 2))
@@ -252,7 +258,7 @@ class stock_strategy:
 
         self.break_point_solution()
 
-        if strategy == 'daily':
+        if self.strategy == 'daily':
             print(self.low_centers)
             print(self.high_centers)
 
@@ -329,7 +335,7 @@ class stock_strategy:
         print('50MA Lower Bollinger Band break point:', round(p_lbb,2))
         print('50MA Upper Bollinger Band break point:', round(p_ubb,2))
 
-    def plot_chart(self, strategy, interactive_plot):
+    def plot_chart(self, interactive_plot):
         '''
         Plot the stock trading charts
         Including:
@@ -343,7 +349,7 @@ class stock_strategy:
             df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
         else:
             df_plot = self.df
-        if strategy == 'daily':
+        if self.strategy == 'daily':
             ax = plot_candlestick(df_plot, figsize=(32,8))
             ax.set_title(self.stock_name.upper())
             for low in self.low_centers[:]:
@@ -361,7 +367,7 @@ class stock_strategy:
 
             ax.legend()
 
-        elif strategy == 'longterm' and interactive_plot:
+        elif self.strategy == 'longterm' and interactive_plot:
             figsize=(12, 8)
             fig = go.Figure(layout=dict(width=figsize[0]*80, height=figsize[1]*80))
             
@@ -385,7 +391,7 @@ class stock_strategy:
             
             fig.show()
 
-        elif strategy == 'longterm' and not interactive_plot:
+        elif self.strategy == 'longterm' and not interactive_plot:
             figsize=(12, 9)
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
             ax1.grid(True, alpha=0.5)
@@ -411,12 +417,12 @@ class stock_strategy:
             plt.tight_layout()
             plt.show()
 
-    def output(self, strategy: str = 'longterm', interactive_plot: bool = False): 
+    def output(self, interactive_plot: bool = False): 
         '''        
         Call print_info and plot_chart to output result
         '''
-        self.print_info(strategy)
-        self.plot_chart(strategy, interactive_plot)
+        self.print_info()
+        self.plot_chart(interactive_plot)
 
     def return_result(self):
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
@@ -425,13 +431,13 @@ class stock_strategy:
             df_plot = self.df
         return df_plot
 
-    def latest_metric(self, realtime=True, imputed_value=None):
+    def latest_metric(self, realtime=True, imputed_value=None, print_result=True):
         '''
         Pulling latest metrics of RSI and MACD, using latest realtime stock price
         If realtime=False: impute latest close price or provided value instead
         '''
         if realtime:
-            new_price = yf.Ticker(self.stock_name.upper()).history(period='1d')['Close'].tolist()
+            new_price = self.ticker['Close'].tolist()
         elif imputed_value is None:
             new_price = self.df.tail(1)['close'].tolist()
         else:
@@ -455,27 +461,30 @@ class stock_strategy:
         rs = gain / loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
-        if latest_rsi > 70:
-            print("Current RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
-        elif latest_rsi < 30:
-            print("Current RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
-        else:
-            print("Current RSI:", latest_rsi, Style.RESET_ALL)
+        self.curr_rsi = latest_rsi
         latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
-        if latest_macd < 0:
-            print("Current MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
-        elif latest_macd > 0:
-            print("Current MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
-        else:
-            print("Current MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
+        self.curr_macd = latest_macd
+        if print_result:
+            if latest_rsi > 70:
+                print("Current RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
+            elif latest_rsi < 30:
+                print("Current RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
+            else:
+                print("Current RSI:", latest_rsi, Style.RESET_ALL)
+            if latest_macd < 0:
+                print("Current MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
+            elif latest_macd > 0:
+                print("Current MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
+            else:
+                print("Current MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
 
-    def infer_metric(self, realtime=True, imputed_value=None):
+    def infer_metric(self, realtime=True, imputed_value=None, print_result=True):
         '''
         Assuming the current stock price holds for another day, what would be MACD or RSI?
         If realtime=False: impute latest close price or provided value instead
         '''
         if realtime:
-            new_price = yf.Ticker(self.stock_name.upper()).history(period='1d')['Close'].tolist()
+            new_price = self.ticker['Close'].tolist()
         elif imputed_value is None:
             new_price = self.df.tail(1)['close'].tolist()
         else:
@@ -499,16 +508,19 @@ class stock_strategy:
         rs = gain / loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
-        if latest_rsi > 70:
-            print("Tomorrow inferred RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
-        elif latest_rsi < 30:
-            print("Tomorrow inferred RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
-        else:
-            print("Tomorrow inferred RSI:", latest_rsi, Style.RESET_ALL)
+        self.infer_rsi = latest_rsi
         latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
-        if latest_macd < 0:
-            print("Tomorrow inferred MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
-        elif latest_macd > 0:
-            print("Tomorrow inferred MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
-        else:
-            print("Tomorrow inferred MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
+        self.infer_macd = latest_macd
+        if print_result:
+            if latest_rsi > 70:
+                print("Tomorrow inferred RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
+            elif latest_rsi < 30:
+                print("Tomorrow inferred RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
+            else:
+                print("Tomorrow inferred RSI:", latest_rsi, Style.RESET_ALL)
+            if latest_macd < 0:
+                print("Tomorrow inferred MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
+            elif latest_macd > 0:
+                print("Tomorrow inferred MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
+            else:
+                print("Tomorrow inferred MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
