@@ -392,7 +392,7 @@ class stock_strategy:
             fig.show()
 
         elif self.strategy == 'longterm' and not interactive_plot:
-            figsize=(12, 9)
+            figsize=(24, 12)
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
             ax1.grid(True, alpha=0.5)
             ax1.plot(df_plot['date'], df_plot['close'], label='Daily Close Price')
@@ -407,7 +407,8 @@ class stock_strategy:
             ax2.plot(df_plot['date'], df_plot['MACD'], label='MACD', color='red')
             ax2.plot(df_plot['date'], df_plot['MACD_signal'], label='Signal Line', linestyle='--', color='blue')
             bar_colors = ['green' if macd > signal else 'red' for macd, signal in zip(df_plot['MACD'], df_plot['MACD_signal'])]
-            ax2.bar(df_plot['date'], df_plot['MACD'] - df_plot['MACD_signal'], width=1.5, align='center', color=bar_colors)        
+            ax3 = ax2.twinx()
+            ax3.bar(df_plot['date'], df_plot['MACD'] - df_plot['MACD_signal'], width=1.5,  alpha=0.3, align='center', color=bar_colors)        
             ax2.set_title('MACD')
             ax2.legend()
             fig.suptitle('MACD Analysis', fontsize=16)
