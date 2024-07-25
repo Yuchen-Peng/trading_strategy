@@ -168,6 +168,8 @@ class stock_strategy:
         self.df['50 Day STD'] = self.df['close'].rolling(window=50).std()
         self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (self.df['50 Day STD'] * 2.5)
         self.df['Lower Band - 50MA'] = self.df['50 Day MA'] - (self.df['50 Day STD'] * 2.5)
+        self.df['120 Day MA'] = self.df['close'].rolling(window=120).mean()
+        self.df['200 Day MA'] = self.df['close'].rolling(window=200).mean()
 
     def calculate_rsi(self):
         '''
@@ -238,6 +240,11 @@ class stock_strategy:
         print("Latest 50 Day MA:", round(self.df[self.df['date']==previous_day]['50 Day MA'].item(), 2))
         print("Latest Lower Bollinger Band, 50MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 50MA'].item(), 2))
         print("Latest Higher Bollinger Band, 50MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 50MA'].item(), 2))
+        print("Latest 50 Day EMA:", round(self.df[self.df['date']==previous_day]['50 Day EMA'].item(), 2))
+        print("Latest 120 Day MA:", round(self.df[self.df['date']==previous_day]['120 Day MA'].item(), 2))
+        print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
+        print("Latest 200 Day EMA:", round(self.df[self.df['date']==previous_day]['200 Day EMA'].item(), 2))
+
         print()
 
         latest_rsi = round(self.df[self.df['date']==previous_day]['RSI'].item(), 2)
@@ -279,6 +286,7 @@ class stock_strategy:
         
         last_19day_price = df['close'][-20:-1]
         last_49day_price = df['close'][-50:-1]
+        last_119day_price = df['close'][-120:-1]
         last_199day_price = df['close'][-200:-1]
 
         # last_19day_price = df[df['date'].between(
@@ -334,6 +342,10 @@ class stock_strategy:
         print('50MA break point:', round(p_ma,2))
         print('50MA Lower Bollinger Band break point:', round(p_lbb,2))
         print('50MA Upper Bollinger Band break point:', round(p_ubb,2))
+
+        print('120MA break point:', round(np.mean(last_119day_price),2))
+        print('200MA break point:', round(np.mean(last_199day_price),2))
+
 
     def plot_chart(self, interactive_plot):
         '''
