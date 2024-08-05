@@ -274,7 +274,7 @@ class stock_strategy:
         Solve for the break point solution price for breaking the current MA/BB
         '''
         df = yf.download(self.stock_name.upper(),
-                     start=(datetime.today() - relativedelta(days=200)).strftime('%Y-%m-%d'),
+                     start=(datetime.today() - relativedelta(days=300)).strftime('%Y-%m-%d'),
                      end=datetime.today().strftime('%Y-%m-%d')
                      )
         df = df.reset_index()
