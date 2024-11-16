@@ -219,30 +219,30 @@ class stock_strategy:
             df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
         else:
             df_plot = self.df
-        close = df_plot[df_plot['date']==previous_day]['close'].item()
+        new_price = self.ticker['Close'].tolist()[0]
         if self.strategy == 'daily':
             try:
-                support = max([e[0] for e in self.low_centers if e < close])
+                support = max([e[0] for e in self.low_centers if e < new_price])
             except:
                 print('Break all support; record min stock price')
                 support = df_plot['low'].min()
             try:
-                resistance = min([e[0] for e in self.high_centers if e > close])
+                resistance = min([e[0] for e in self.high_centers if e > new_price])
             except:
                 print('Break all resistance; record max stock price')
                 resistance = df_plot['high'].max()
-            print('* previous stock price closing', round(close,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
+            print('* Current stock price', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
         elif self.strategy == 'longterm':
-            print('* previous stock price closing', round(close,2))
-        print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
-        print("Latest Lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 20MA'].item(), 2))
-        print("Latest Higher Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 20MA'].item(), 2))
-        print("Latest 50 Day MA:", round(self.df[self.df['date']==previous_day]['50 Day MA'].item(), 2))
-        print("Latest Lower Bollinger Band, 50MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 50MA'].item(), 2))
-        print("Latest Higher Bollinger Band, 50MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 50MA'].item(), 2))
+            print('* Current stock price', round(new_price,2))
+        # print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
+        # print("Latest Lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 20MA'].item(), 2))
+        # print("Latest Higher Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 20MA'].item(), 2))
+        # print("Latest 50 Day MA:", round(self.df[self.df['date']==previous_day]['50 Day MA'].item(), 2))
+        # print("Latest Lower Bollinger Band, 50MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 50MA'].item(), 2))
+        # print("Latest Higher Bollinger Band, 50MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 50MA'].item(), 2))
         print("Latest 50 Day EMA:", round(self.df[self.df['date']==previous_day]['50 Day EMA'].item(), 2))
-        print("Latest 120 Day MA:", round(self.df[self.df['date']==previous_day]['120 Day MA'].item(), 2))
-        print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
+        # print("Latest 120 Day MA:", round(self.df[self.df['date']==previous_day]['120 Day MA'].item(), 2))
+        # print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
         print("Latest 200 Day EMA:", round(self.df[self.df['date']==previous_day]['200 Day EMA'].item(), 2))
 
         print()

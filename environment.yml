@@ -504,15 +504,18 @@ dependencies:
   - zstd=1.5.5=hd90d995_2
   - pip:
       - absl-py==2.1.0
+      - akshare==1.14.71
       - astunparse==1.6.3
       - flatbuffers==24.3.25
       - gast==0.6.0
       - google-pasta==0.2.0
       - grpcio==1.65.1
       - html5lib==1.1
+      - jsonpath==0.82.2
       - keras==3.4.1
       - kneed==0.8.5
       - libclang==18.1.1
+      - mini-racer==0.12.4
       - ml-dtypes==0.4.0
       - multitasking==0.0.11
       - namex==0.0.8
@@ -524,6 +527,7 @@ dependencies:
       - tensorflow==2.17.0
       - termcolor==2.4.0
       - xgboost==2.1.0
+      - xlrd==2.0.1
       - yf==0.0.4
       - yfinance==0.2.41
 prefix: /opt/anaconda3/envs/ts_env
