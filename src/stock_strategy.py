@@ -231,9 +231,11 @@ class stock_strategy:
             except:
                 print('Break all resistance; record max stock price')
                 resistance = df_plot['high'].max()
-            print('* Current stock price', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
+            print('* Current stock price:', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
         elif self.strategy == 'longterm':
-            print('* Current stock price', round(new_price,2))
+            print('* Current stock price:', round(new_price,2))
+        print('* Recent high:', round(df_plot['high'].max(),2))
+        print('* Current stock price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
         # print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
         # print("Latest Lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 20MA'].item(), 2))
         # print("Latest Higher Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 20MA'].item(), 2))
