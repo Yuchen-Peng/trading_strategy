@@ -11,13 +11,78 @@ import plotly.graph_objects as go
 
 from scipy.stats import norm
 from scipy.optimize import minimize
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, curve_fit
 from kneed import KneeLocator
 from sklearn.cluster import KMeans
 from sklearn.metrics import r2_score
 from math import ceil, floor
 
 from utils import plot_candlestick
+
+def exponential_func(x, a, b):
+    return a * 10**(b * x)
+
+def stock_regression(stock_name,
+                     start='2010-01-01',
+                     end=datetime.today(),
+                     regression_start='2010-01-01',
+                     detailed=False,
+                    ):
+    '''
+    Frequent value for regression_start: '2010-01-01', '2020-01-01', '2020-03-20'
+    Including maximal drawdown
+    '''
+    df_stock = yf.download(stock_name.upper(),
+                           # start=start,
+                           start=regression_start,
+                           end=end)
+    df_stock['max_price'] = df_stock['High'].cummax()
+    df_stock['drawdown'] = (df_stock['Low'] - df_stock['max_price']) / df_stock['max_price']
+    
+    max_drawdown_row = df_stock.loc[df_stock['drawdown'].idxmin()]
+    max_drawdown = max_drawdown_row['drawdown']
+    
+    peak_date = df_stock.loc[:max_drawdown_row.name, 'High'].idxmax()
+    trough_date = max_drawdown_row.name
+    
+    df_stock = df_stock.reset_index()
+    df_stock['log_price'] = np.log(df_stock['Close'])
+
+    # df_reg = df_stock[df_stock['Date']>=pd.to_datetime(regression_start)]
+    df_reg = df_stock
+    df_reg['days_since_start'] = (df_reg['Date'] - df_reg['Date'].min()).dt.days
+
+    # Assuming your DataFrame is named 'df' and contains columns 'days_since_start' and 'Close'
+    # Initial guess for parameters
+    initial_guess = (df_reg.head(1)['Close'].unique()[0], np.log10(df_reg.tail(1)['Close'].unique()[0] / df_reg.head(1)['Close'].unique()[0])/df_reg.tail(1)['days_since_start'].unique()[0])  # You might need to adjust these initial values based on your data
+
+    # Fit the curve
+    popt, pcov = curve_fit(exponential_func, df_reg['days_since_start'], df_reg['Close'], p0=initial_guess)
+
+    a_fit, b_fit = popt
+    if detailed:
+        print('Annual expected return rate: ', 10**(b_fit*365)-1)
+        print(f"Maximum Drawdown: {max_drawdown:.2%}")
+        print(f"Peak Date: {peak_date.date()} with price {df_stock.loc[peak_date, 'High']}")
+        print(f"Trough Date: {trough_date.date()} with price {max_drawdown_row['Low']}")
+        print('Final price extracted:',exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit))
+        print("R2:", round(r2_score(np.log10(df_reg['Close']).values.reshape(-1, 1), (np.log10(a_fit) + b_fit*df_reg['days_since_start'])),4))
+    
+        # Generate the fitted curve
+        days_range = np.linspace(df_reg['days_since_start'].min(), df_reg['days_since_start'].max(), 100)
+        fitted_curve = exponential_func(days_range, *popt)
+    
+        # Plot the original data and the fitted curve
+        plt.figure(figsize=(10, 6))
+        plt.scatter(df_reg['days_since_start'], df_reg['Close'], label='Original Data')
+        plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
+        plt.xlabel('Days Since Start')
+        plt.ylabel('Price')
+        plt.title('Exponential Curve Fitting for ' + stock_name.upper())
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+    return round(exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit), 2)
 
 def stock_correlation(
     stock_name1: str,
