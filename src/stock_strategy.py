@@ -43,6 +43,7 @@ def stock_regression(stock_name,
     max_drawdown = max_drawdown_row['drawdown']
     
     peak_date = df_stock.loc[:max_drawdown_row.name, 'High'].idxmax()
+    peak_price = round(df_stock.loc[peak_date, 'High'],2)
     trough_date = max_drawdown_row.name
     
     df_stock = df_stock.reset_index()
@@ -63,8 +64,8 @@ def stock_regression(stock_name,
     if detailed:
         print('Annual expected return rate: ', 10**(b_fit*365)-1)
         print(f"Maximum Drawdown: {max_drawdown:.2%}")
-        print(f"Peak Date: {peak_date.date()} with price {df_stock.loc[peak_date, 'High']}")
-        print(f"Trough Date: {trough_date.date()} with price {max_drawdown_row['Low']}")
+        print(f"Peak Date: {peak_date} with price {peak_price}")
+        print(f"Trough Date: {trough_date.date()} with price {round(max_drawdown_row['Low'],2)}")
         print('Final price extracted:',exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit))
         print("R2:", round(r2_score(np.log10(df_reg['Close']).values.reshape(-1, 1), (np.log10(a_fit) + b_fit*df_reg['days_since_start'])),4))
     
