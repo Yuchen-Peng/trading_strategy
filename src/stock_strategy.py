@@ -62,21 +62,28 @@ def stock_regression(stock_name,
 
     a_fit, b_fit = popt
     if detailed:
-        print('Annual expected return rate: ', 10**(b_fit*365)-1)
-        print(f"Maximum Drawdown: {max_drawdown:.2%}")
+        print(f"Annual expected return rate: {(10**(b_fit*365)-1):.2%}")
+        print(f"Maximal Drawdown: {max_drawdown:.2%}")
         print(f"Peak Date: {peak_date} with price {peak_price}")
         print(f"Trough Date: {trough_date.date()} with price {round(max_drawdown_row['Low'],2)}")
-        print('Final price extracted:',exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit))
+        print('Final price extracted:',round(exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit),2))
         print("R2:", round(r2_score(np.log10(df_reg['Close']).values.reshape(-1, 1), (np.log10(a_fit) + b_fit*df_reg['days_since_start'])),4))
     
         # Generate the fitted curve
-        days_range = np.linspace(df_reg['days_since_start'].min(), df_reg['days_since_start'].max(), 100)
-        fitted_curve = exponential_func(days_range, *popt)
-    
+        # days_range = np.linspace(df_reg['days_since_start'].min(), df_reg['days_since_start'].max(), 100)
+        # fitted_curve = exponential_func(days_range, *popt)
+        fitted_curve = exponential_func(df_reg['days_since_start'], *popt)
+
+        # For fitted_curve that starts above the actual, the drawdown is not practical as we won't buy there
+        # Start from the first place where fitted_curve is below the actual, then becomes larger than actual
+        index_start = np.where(df_reg['Close'].values > fitted_curve)[0][0]
+        print(f"Maximal Drawdown from regression price relative to regression price: {((fitted_curve[index_start:] - df_reg['Close'].values[index_start:]) / fitted_curve[index_start:]).max():.2%}")
         # Plot the original data and the fitted curve
         plt.figure(figsize=(10, 6))
-        plt.scatter(df_reg['days_since_start'], df_reg['Close'], label='Original Data')
-        plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
+        # plt.scatter(df_reg['days_since_start'], df_reg['Close'], label='Original Data')
+        # plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
+        plt.scatter(df_reg['Date'], df_reg['Close'], label='Original Data')
+        plt.plot(df_reg['Date'], fitted_curve, 'r-', label='Fitted Curve')
         plt.xlabel('Days Since Start')
         plt.ylabel('Price')
         plt.title('Exponential Curve Fitting for ' + stock_name.upper())
