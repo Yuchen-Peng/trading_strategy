@@ -36,7 +36,8 @@ def stock_regression(stock_name,
                            # start=start,
                            start=regression_start,
                            end=end, 
-                           prepost=True
+                           prepost=True,
+                           auto_adjust=True
                            ).droplevel(level='Ticker', axis=1)
     df_stock['max_price'] = df_stock['High'].cummax()
     df_stock['drawdown'] = (df_stock['Low'] - df_stock['max_price']) / df_stock['max_price']
@@ -104,11 +105,11 @@ def stock_correlation(
     For two corrlated stocks, if one has very short history, we can use this to fit its historical price 
     Return: dataframe of the second stock_name
     '''
-    df = yf.download(stock_name1.upper(), start=start, end=end, prepost=True).droplevel(level='Ticker', axis=1)
+    df = yf.download(stock_name1.upper(), start=start, end=end, prepost=True, auto_adjust=True).droplevel(level='Ticker', axis=1)
     df = df.reset_index()
     df.columns = df.columns.str.lower()
 
-    df_2 = yf.download(stock_name2.upper(), start=start, end=end, prepost=True).droplevel(level='Ticker', axis=1)
+    df_2 = yf.download(stock_name2.upper(), start=start, end=end, prepost=True, auto_adjust=True).droplevel(level='Ticker', axis=1)
     df_2 = df_2.reset_index()
     df_2.columns = df_2.columns.str.lower()
 
@@ -208,9 +209,10 @@ class stock_strategy:
             self.df = stock_correlation(stock_name1='BTC-USD', stock_name2='fbtc')
         else:    
             self.df = yf.download(self.stock_name.upper(),
-                start=start,
-                end=end, 
-                prepost=True).droplevel(level='Ticker', axis=1)
+                                  start=start,
+                                  end=end,
+                                  prepost=True,
+                                  auto_adjust=True).droplevel(level='Ticker', axis=1)
             self.df = self.df.reset_index()
             self.df.columns = self.df.columns.str.lower()
         self.ticker = yf.Ticker(self.stock_name.upper()).history(period='1d')
@@ -352,10 +354,11 @@ class stock_strategy:
         Solve for the break point solution price for breaking the current MA/BB
         '''
         df = yf.download(self.stock_name.upper(),
-                     start=(datetime.today() - relativedelta(days=300)).strftime('%Y-%m-%d'),
-                     end=datetime.today().strftime('%Y-%m-%d'), 
-                     prepost=True
-                     ).droplevel(level='Ticker', axis=1)
+                         start=(datetime.today() - relativedelta(days=300)).strftime('%Y-%m-%d'),
+                         end=datetime.today().strftime('%Y-%m-%d'),
+                         prepost=True,
+                         auto_adjust=True,
+                         ).droplevel(level='Ticker', axis=1)
         df = df.reset_index()
         df.columns = df.columns.str.lower()
         # df = df[['close']]
