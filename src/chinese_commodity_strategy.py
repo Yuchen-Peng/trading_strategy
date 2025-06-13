@@ -33,7 +33,7 @@ class commodity_strategy:
         self.commodity_code = commodity_code
         self.strategy = strategy
 
-        print(f"Downloading data for {self.commodity_code.upper()} from {start} to {end} using akshare...")
+        print(f"Downloading data for {self.commodity_code} from {start} to {end} using akshare...")
         self.df = ak.spot_hist_sge(
             symbol=self.commodity_code,
         )
@@ -48,7 +48,7 @@ class commodity_strategy:
         if not latest_data.empty:
             self.ticker_close_price = latest_data[latest_data['时间'] == latest_data['时间'].max()]['现价']
         else:
-            print(f"Could not retrieve real-time price for {self.commodity_code.upper()}. Using last available close price.")
+            print(f"Could not retrieve real-time price for {self.commodity_code}. Using last available close price.")
             self.ticker_close_price = self.df['close'].iloc[-1]
 
 
@@ -189,7 +189,7 @@ class commodity_strategy:
         '''
         # Download data for breakpoint calculation using akshare
         df = ak.spot_hist_sge(
-            symbol=self.commodity_code.upper(),
+            symbol=self.commodity_code,
         )
         df['date'] = pd.to_datetime(df['date'])
         df = df[df['date'].between(datetime.today() - relativedelta(days=300), datetime.today())]
@@ -249,7 +249,7 @@ class commodity_strategy:
             df_plot = self.df
         if self.strategy == 'daily':
             ax = plot_candlestick(df_plot, figsize=(32,16))
-            ax.set_title(self.commodity_code.upper(), fontsize=32)
+            ax.set_title(self.commodity_code, fontsize=32)
             for low in self.low_centers[:]:
                 ax.axhline(low[0], color='green', ls='--', label=f'Support at {round(low[0],4)}')
             for high in self.high_centers[:]:
@@ -274,7 +274,7 @@ class commodity_strategy:
             fig.add_trace(go.Scatter(x=df_plot['date'], y=df_plot['lower Band - 50MA'], mode='lines', line=dict(dash='dash'), name='lower Band'))
             fig.add_trace(go.Scatter(x=df_plot['date'], y=df_plot['Upper Band - 50MA'], mode='lines', line=dict(dash='dash'), name='Upper Band', fill='tonexty', fillcolor='rgba(128,128,128,0.3)'))
             
-            fig.update_layout(title='Interactive Plot of Daily commodity Price for ' + self.commodity_code.upper(),
+            fig.update_layout(title='Interactive Plot of Daily commodity Price for ' + self.commodity_code,
                               xaxis_title='date',
                               yaxis_title='Daily Price',
                               hovermode='closest')
@@ -294,7 +294,7 @@ class commodity_strategy:
             ax1.plot(df_plot['date'], df_plot['Upper Band - 50MA'], ls='--', label='Upper Bollinger Band, 50MA')
             ax1.plot(df_plot['date'], df_plot['lower Band - 50MA'], ls='--', label='lower Bollinger Band, 50MA')
             ax1.fill_between(df_plot['date'], df_plot['Upper Band - 50MA'], df_plot['lower Band - 50MA'], color='gray', alpha=0.3) # Fill the area between the bands
-            ax1.set_title('Daily commodity price for ' + self.commodity_code.upper(), fontsize=32)
+            ax1.set_title('Daily commodity price for ' + self.commodity_code, fontsize=32)
             ax1.legend(fontsize=16)
             
             # Plot MACD and signal line, color bars based on MACD above/below signal line
