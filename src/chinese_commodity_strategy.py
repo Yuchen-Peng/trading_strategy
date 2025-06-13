@@ -16,124 +16,39 @@ from math import ceil, floor
 
 from utils import plot_candlestick, exponential_func, get_optimum_clusters
 
-def etf_regression(etf_code,
-                     regression_start='20100101',
-                     end=datetime.today(),
-                     detailed=False,
-                    ):
-    '''
-    Frequent value for regression_start: '20100101', '20200101', '20200320'
-    Including maximal drawdown
-    '''
-    df_etf = ak.fund_etf_hist_em(symbol=etf_code,
-    	                   period="daily", 
-                           start_date=regression_start,
-                           end_date=end,
-                           adjust="")
-    df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-    df_etf['max_price'] = df_etf['high'].cummax()
-    df_etf['drawdown'] = (df_etf['low'] - df_etf['max_price']) / df_etf['max_price']
-    
-    max_drawdown_row = df_etf.loc[df_etf['drawdown'].idxmin()]
-    max_drawdown = max_drawdown_row['drawdown']
-    
-    peak_date = df_etf.loc[:max_drawdown_row.name, 'high'].idxmax()
-    peak_price = round(df_etf.loc[peak_date, 'high'],2)
-    trough_date = max_drawdown_row.name
-    
-    df_etf = df_etf.reset_index()
-    df_etf['log_price'] = np.log(df_etf['close'])
-
-    # df_reg = df_etf[df_etf['date']>=pd.to_datetime(regression_start)]
-    df_reg = df_etf
-    df_reg['days_since_start'] = (df_reg['date'] - df_reg['date'].min()).dt.days
-
-    # Assuming your DataFrame is named 'df' and contains columns 'days_since_start' and 'close'
-    # Initial guess for parameters
-    initial_guess = (df_reg.head(1)['close'].unique()[0], np.log10(df_reg.tail(1)['close'].unique()[0] / df_reg.head(1)['close'].unique()[0])/df_reg.tail(1)['days_since_start'].unique()[0])  # You might need to adjust these initial values based on your data
-
-    # Fit the curve
-    popt, pcov = curve_fit(exponential_func, df_reg['days_since_start'], df_reg['close'], p0=initial_guess)
-
-    a_fit, b_fit = popt
-    if detailed:
-        print(f"Annual expected return rate: {(10**(b_fit*365)-1):.2%}")
-        print(f"Maximal Drawdown: {max_drawdown:.2%}")
-        print(f"Peak date: {peak_date} with price {peak_price}")
-        print(f"Trough date: {trough_date.date()} with price {round(max_drawdown_row['low'],2)}")
-        print('Final price extracted:',round(exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit),2))
-        print("R2:", round(r2_score(np.log10(df_reg['close']).values.reshape(-1, 1), (np.log10(a_fit) + b_fit*df_reg['days_since_start'])),4))
-    
-        # Generate the fitted curve
-        # days_range = np.linspace(df_reg['days_since_start'].min(), df_reg['days_since_start'].max(), 100)
-        # fitted_curve = exponential_func(days_range, *popt)
-        fitted_curve = exponential_func(df_reg['days_since_start'], *popt)
-
-        # For fitted_curve that starts above the actual, the drawdown is not practical as we won't buy there
-        # Start from the first place where fitted_curve is below the actual, then becomes larger than actual
-        index_start = np.where(df_reg['close'].values > fitted_curve)[0][0]
-        print(f"Maximal Drawdown from regression price relative to regression price: {((fitted_curve[index_start:] - df_reg['close'].values[index_start:]) / fitted_curve[index_start:]).max():.2%}")
-        # Plot the original data and the fitted curve
-        plt.figure(figsize=(10, 6))
-        # plt.scatter(df_reg['days_since_start'], df_reg['close'], label='Original Data')
-        # plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
-        plt.scatter(df_reg['date'], df_reg['close'], label='Original Data')
-        plt.plot(df_reg['date'], fitted_curve, 'r-', label='Fitted Curve')
-        plt.xlabel('Days Since Start')
-        plt.ylabel('Price')
-        plt.title('Exponential Curve Fitting for ' + etf_code.upper(), fontsize=32)
-        plt.legend(fontsize=16)
-        plt.grid(True)
-        plt.show()
-    return round(exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit), 2)
-
-
-class etf_strategy:
+class commodity_strategy:
     """
-    class to print and plot etf trading strategy
+    class to print and plot commodity trading strategy
     strategy: allowed values are 'longterm', 'daily', 'test'
     """
     def __init__(
         self,
-        etf_code: str,
-        start: datetime = (datetime.today() - relativedelta(years=3)).strftime('%Y%m%d'),
-        end: datetime = datetime.today().strftime('%Y%m%d'),
+        commodity_code: str,
+        start: datetime = (datetime.today() - relativedelta(years=3)).strftime('%Y-%m-%d'),
+        end: datetime = datetime.today().strftime('%Y-%m-%d'),
         saturation_point: float = 0.05,
         impute: bool = False,
         strategy: str = 'longterm',
         ):
-        self.etf_code = etf_code
+        self.commodity_code = commodity_code
         self.strategy = strategy
 
-        print(f"Downloading data for {self.etf_code.upper()} from {start} to {end} using akshare...")
-        self.df = ak.fund_etf_hist_em(
-            symbol=self.etf_code.upper(),
-            start_date=start,
-            end_date=end,
-            period="daily", # Default to daily as in yfinance
-            adjust="" # No adjustment by default, match auto_adjust=True behavior if possible
+        print(f"Downloading data for {self.commodity_code.upper()} from {start} to {end} using akshare...")
+        self.df = ak.spot_hist_sge(
+            symbol=self.commodity_code,
         )
-        # Rename columns to match the yfinance dataframe structure
-        # akshare column names might be in Chinese or different.
-        # Common akshare columns for ETF historical data might include:
-        # '日期' (date), '开盘' (Open), '收盘' (close), '最高' (high), '最低' (low), '成交量' (Volume)
-        self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
         self.df['date'] = pd.to_datetime(self.df['date']) # Convert 'date' column to datetime objects
-        self.df = self.df[['date', 'open', 'high', 'low', 'close', 'volume']] # Keep only necessary columns
+        self.df = self.df[self.df['date'].between(pd.to_datetime(start), pd.to_datetime(end))]
 
-        # For the latest price, directly call ak.fund_etf_hist_em for today's date
+        # For the latest price, call ak.spot_quotations_sge
         today_str = datetime.today().strftime('%Y%m%d')
-        latest_data = ak.fund_etf_hist_em(
-            symbol=self.etf_code.upper(),
-            start_date=today_str,
-            end_date=today_str,
-            period="daily",
-            adjust=""
+        latest_data = ak.spot_quotations_sge(
+            symbol=self.commodity_code,
         )
         if not latest_data.empty:
-            self.ticker_close_price = latest_data.iloc[-1]['收盘'] # Assuming '收盘' is the close price
+            self.ticker_close_price = latest_data[latest_data['时间'] == latest_data['时间'].max()]['现价']
         else:
-            print(f"Could not retrieve real-time price for {self.etf_code.upper()}. Using last available close price.")
+            print(f"Could not retrieve real-time price for {self.commodity_code.upper()}. Using last available close price.")
             self.ticker_close_price = self.df['close'].iloc[-1]
 
 
@@ -221,18 +136,18 @@ class etf_strategy:
             try:
                 support = max([e[0] for e in self.low_centers if e < new_price])
             except:
-                print('Break all support; record min etf price')
+                print('Break all support; record min commodity price')
                 support = df_plot['low'].min()
             try:
                 resistance = min([e[0] for e in self.high_centers if e > new_price])
             except:
-                print('Break all resistance; record max etf price')
+                print('Break all resistance; record max commodity price')
                 resistance = df_plot['high'].max()
-            print('* Current etf price:', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
+            print('* Current commodity price:', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
         elif self.strategy == 'longterm':
-            print('* Current etf price:', round(new_price,2))
+            print('* Current commodity price:', round(new_price,2))
         print('* Recent high:', round(df_plot['high'].max(),2))
-        print('* Current etf price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
+        print('* Current commodity price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
         print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
         print("Latest lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['lower Band - 20MA'].item(), 2))
         print("Latest higher Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 20MA'].item(), 2))
@@ -273,16 +188,11 @@ class etf_strategy:
         Solve for the break point solution price for breaking the current MA/BB
         '''
         # Download data for breakpoint calculation using akshare
-        df = ak.fund_etf_hist_em(
-            symbol=self.etf_code.upper(),
-            start_date=(datetime.today() - relativedelta(days=300)).strftime('%Y%m%d'),
-            end_date=datetime.today().strftime('%Y%m%d'),
-            period="daily",
-            adjust=""
+        df = ak.spot_hist_sge(
+            symbol=self.commodity_code.upper(),
         )
-        df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
         df['date'] = pd.to_datetime(df['date'])
-        df = df[['date', 'open', 'high', 'low', 'close', 'volume']]
+        df = df[df['date'].between(datetime.today() - relativedelta(days=300), datetime.today())]
 
         # Define the expression whose roots we want to find
         # fsolve is not satisfying; provide analytical solution
@@ -325,7 +235,7 @@ class etf_strategy:
 
     def plot_chart(self, interactive_plot):
         '''
-        Plot the etf trading charts
+        Plot the commodity trading charts
         Including:
         * SMA
         * EMA
@@ -339,7 +249,7 @@ class etf_strategy:
             df_plot = self.df
         if self.strategy == 'daily':
             ax = plot_candlestick(df_plot, figsize=(32,16))
-            ax.set_title(self.etf_code.upper(), fontsize=32)
+            ax.set_title(self.commodity_code.upper(), fontsize=32)
             for low in self.low_centers[:]:
                 ax.axhline(low[0], color='green', ls='--', label=f'Support at {round(low[0],4)}')
             for high in self.high_centers[:]:
@@ -364,7 +274,7 @@ class etf_strategy:
             fig.add_trace(go.Scatter(x=df_plot['date'], y=df_plot['lower Band - 50MA'], mode='lines', line=dict(dash='dash'), name='lower Band'))
             fig.add_trace(go.Scatter(x=df_plot['date'], y=df_plot['Upper Band - 50MA'], mode='lines', line=dict(dash='dash'), name='Upper Band', fill='tonexty', fillcolor='rgba(128,128,128,0.3)'))
             
-            fig.update_layout(title='Interactive Plot of Daily etf Price for ' + self.etf_code.upper(),
+            fig.update_layout(title='Interactive Plot of Daily commodity Price for ' + self.commodity_code.upper(),
                               xaxis_title='date',
                               yaxis_title='Daily Price',
                               hovermode='closest')
@@ -384,7 +294,7 @@ class etf_strategy:
             ax1.plot(df_plot['date'], df_plot['Upper Band - 50MA'], ls='--', label='Upper Bollinger Band, 50MA')
             ax1.plot(df_plot['date'], df_plot['lower Band - 50MA'], ls='--', label='lower Bollinger Band, 50MA')
             ax1.fill_between(df_plot['date'], df_plot['Upper Band - 50MA'], df_plot['lower Band - 50MA'], color='gray', alpha=0.3) # Fill the area between the bands
-            ax1.set_title('Daily etf price for ' + self.etf_code.upper(), fontsize=32)
+            ax1.set_title('Daily commodity price for ' + self.commodity_code.upper(), fontsize=32)
             ax1.legend(fontsize=16)
             
             # Plot MACD and signal line, color bars based on MACD above/below signal line
@@ -418,7 +328,7 @@ class etf_strategy:
 
     def latest_metric(self, realtime=True, imputed_value=None, print_result=True):
         '''
-        Pulling latest metrics of RSI and MACD, using latest realtime etf price
+        Pulling latest metrics of RSI and MACD, using latest realtime commodity price
         If realtime=False: impute latest close price or provided value instead
         '''
         if realtime:
@@ -471,7 +381,7 @@ class etf_strategy:
 
     def infer_metric(self, realtime=True, imputed_value=None, print_result=True):
         '''
-        Assuming the current etf price holds for another day, what would be MACD or RSI?
+        Assuming the current commodity price holds for another day, what would be MACD or RSI?
         If realtime=False: impute latest close price or provided value instead
         '''
         if realtime:
