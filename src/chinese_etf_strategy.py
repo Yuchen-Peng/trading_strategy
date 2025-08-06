@@ -17,10 +17,11 @@ from math import ceil, floor
 from utils import plot_candlestick, exponential_func, get_optimum_clusters
 
 def etf_regression(etf_code,
-                     regression_start='20100101',
-                     end=datetime.today(),
-                     detailed=False,
-                    ):
+                   regression_start='20100101',
+                   end=datetime.today().strftime('%Y%m%d'),
+                   detailed=False,
+                   adjust="",
+                   ):
     '''
     Frequent value for regression_start: '20100101', '20200101', '20200320'
     Including maximal drawdown
@@ -29,8 +30,9 @@ def etf_regression(etf_code,
     	                   period="daily", 
                            start_date=regression_start,
                            end_date=end,
-                           adjust="")
+                           adjust=adjust)
     df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+    df_etf['date'] = pd.to_datetime(df_etf['date'])
     df_etf['max_price'] = df_etf['high'].cummax()
     df_etf['drawdown'] = (df_etf['low'] - df_etf['max_price']) / df_etf['max_price']
     
@@ -39,7 +41,7 @@ def etf_regression(etf_code,
     
     peak_date = df_etf.loc[:max_drawdown_row.name, 'high'].idxmax()
     peak_price = round(df_etf.loc[peak_date, 'high'],2)
-    trough_date = max_drawdown_row.name
+    trough_date = max_drawdown_row['date']
     
     df_etf = df_etf.reset_index()
     df_etf['log_price'] = np.log(df_etf['close'])
@@ -81,7 +83,7 @@ def etf_regression(etf_code,
         plt.plot(df_reg['date'], fitted_curve, 'r-', label='Fitted Curve')
         plt.xlabel('Days Since Start')
         plt.ylabel('Price')
-        plt.title('Exponential Curve Fitting for ' + etf_code.upper(), fontsize=32)
+        plt.title('Exponential Curve Fitting for ' + etf_code.upper(), fontsize=16)
         plt.legend(fontsize=16)
         plt.grid(True)
         plt.show()
@@ -101,17 +103,21 @@ class etf_strategy:
         saturation_point: float = 0.05,
         impute: bool = False,
         strategy: str = 'longterm',
+        adjust: bool = "" # No adjustment by default, match auto_adjust=True behavior if possible
         ):
         self.etf_code = etf_code
         self.strategy = strategy
+        self.start = start
+        self.end = end
+        self.adjust = adjust
 
         print(f"Downloading data for {self.etf_code.upper()} from {start} to {end} using akshare...")
         self.df = ak.fund_etf_hist_em(
             symbol=self.etf_code.upper(),
-            start_date=start,
-            end_date=end,
-            period="daily", # Default to daily as in yfinance
-            adjust="" # No adjustment by default, match auto_adjust=True behavior if possible
+            start_date=self.start,
+            end_date=self.end,
+            period='daily',  # Default to daily,
+            adjust=self.adjust 
         )
         # Rename columns to match the yfinance dataframe structure
         # akshare column names might be in Chinese or different.
@@ -127,8 +133,8 @@ class etf_strategy:
             symbol=self.etf_code.upper(),
             start_date=today_str,
             end_date=today_str,
-            period="daily",
-            adjust=""
+            period='daily',
+            adjust=self.adjust 
         )
         if not latest_data.empty:
             self.ticker_close_price = latest_data.iloc[-1]['收盘'] # Assuming '收盘' is the close price
@@ -278,7 +284,7 @@ class etf_strategy:
             start_date=(datetime.today() - relativedelta(days=300)).strftime('%Y%m%d'),
             end_date=datetime.today().strftime('%Y%m%d'),
             period="daily",
-            adjust=""
+            adjust=self.adjust
         )
         df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
         df['date'] = pd.to_datetime(df['date'])
