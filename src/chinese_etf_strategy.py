@@ -20,7 +20,7 @@ def etf_regression(etf_code,
                    regression_start='20100101',
                    end=datetime.today().strftime('%Y%m%d'),
                    detailed=False,
-                   adjust="",
+                   adjust="qfq",
                    ):
     '''
     Frequent value for regression_start: '20100101', '20200101', '20200320'
@@ -103,7 +103,7 @@ class etf_strategy:
         saturation_point: float = 0.05,
         impute: bool = False,
         strategy: str = 'longterm',
-        adjust: bool = "" # No adjustment by default, match auto_adjust=True behavior if possible
+        adjust: bool = "qfq" # Use adjust="qfq" as default to adjust historical price
         ):
         self.etf_code = etf_code
         self.strategy = strategy

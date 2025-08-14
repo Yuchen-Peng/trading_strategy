@@ -647,7 +647,7 @@ def plot_candlestick(df: pd.DataFrame, figsize=(16, 8)):
     '''
     data = df.copy()
     data.columns = data.columns.str.lower()
-    data['date'] = pd.to_datetime(data['date'])
+    data['date'] = pd.to_datetime(data['date'], utc=True)
     data.set_index('date', inplace=True)
 
     # Create a figure and an axis
