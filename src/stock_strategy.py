@@ -175,12 +175,11 @@ class stock_strategy:
         self.ticker = yf.Ticker(self.stock_name.upper()).history(period='1d')
         self.calculate_ema()
         self.create_bb()
+        self.create_weekly()
         self.calculate_rsi()
         self.create_macd()
         if self.strategy == 'daily':
             self.low_centers, self.high_centers = self.support_and_resistance(saturation_point)
-
-
 
     def calculate_ema(self):
         '''
@@ -197,17 +196,28 @@ class stock_strategy:
         Create MA at weekly level
         '''
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
-        daily_std20 = self.df['close'].rolling(window=20).std()
-
-        self.df['20 Day STD'] = self.df['close'].rolling(window=20).std()
-        self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (daily_std20 * 2)
-        self.df['Lower Band - 20MA'] = self.df['20 Day MA'] - (daily_std20 * 2)
+        self.daily_std20 = self.df['close'].rolling(window=20).std()
+        self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (self.daily_std20 * 2)
+        self.df['Lower Band - 20MA'] = self.df['20 Day MA'] - (self.daily_std20 * 2)
         self.df['50 Day MA'] = self.df['close'].rolling(window=50).mean()
-        daily_std50 = self.df['close'].rolling(window=50).std()
-        self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (daily_std50 * 2.5)
-        self.df['Lower Band - 50MA'] = self.df['50 Day MA'] - (daily_std50 * 2.5)
+        self.daily_std50 = self.df['close'].rolling(window=50).std()
+        self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (self.daily_std50 * 2.5)
+        self.df['Lower Band - 50MA'] = self.df['50 Day MA'] - (self.daily_std50 * 2.5)
         self.df['120 Day MA'] = self.df['close'].rolling(window=120).mean()
         self.df['200 Day MA'] = self.df['close'].rolling(window=200).mean()
+
+    def create_weekly(self):
+        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
+        # Calculate weekly MA
+        self.weekly_ma10 = self.weekly.rolling(10).mean()
+        self.weekly_ma30 = self.weekly.rolling(30).mean()
+        self.weekly_ma40 = self.weekly.rolling(40).mean()
+
+        # Weekly Bollinger Bands (20-week)
+        self.weekly_ma20 = self.weekly.rolling(20).mean()
+        self.weekly_std20 = self.weekly.rolling(20).std()
+        self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
+        self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
         
     def calculate_rsi(self):
         '''
@@ -284,23 +294,12 @@ class stock_strategy:
         print("Latest 120 Day MA:", round(self.df[self.df['date']==previous_day]['120 Day MA'].item(), 2))
         print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
         print("Latest 200 Day EMA:", round(self.df[self.df['date']==previous_day]['200 Day EMA'].item(), 2))
-
-        # Calculate weekly MA
-        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
-        self.weekly_ma10 = self.weekly.rolling(10).mean()
-        self.weekly_ma30 = self.weekly.rolling(30).mean()
-        self.weekly_ma40 = self.weekly.rolling(40).mean()
-        
-        # Weekly Bollinger Bands (20-week)
-        self.weekly_ma20 = self.weekly.rolling(20).mean()
-        self.weekly_std20 = self.weekly.rolling(20).std()
-        self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
-        self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20        
-        
+                
         print("Latest 10 Week MA:", round(self.weekly_ma10.iloc[-1], 2))
         print("Latest 20 Week MA:", round(self.weekly_ma20.iloc[-1], 2))
         print("Latest 30 Week MA:", round(self.weekly_ma30.iloc[-1], 2))
         print("Latest 40 Week MA:", round(self.weekly_ma40.iloc[-1], 2))
+
         print("Latest Lower Weekly Bollinger Band, 20MA:", round(self.weekly_bb_lower.iloc[-1], 2))
         print("Latest Higher Weekly Bollinger Band, 20MA:", round(self.weekly_bb_upper.iloc[-1], 2))
         

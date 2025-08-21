@@ -142,9 +142,9 @@ class etf_strategy:
             print(f"Could not retrieve real-time price for {self.etf_code.upper()}. Using last available close price.")
             self.ticker_close_price = self.df['close'].iloc[-1]
 
-
         self.calculate_ema()
         self.create_bb()
+        self.create_weekly()
         self.calculate_rsi()
         self.create_macd()
         if self.strategy == 'daily':
@@ -164,16 +164,29 @@ class etf_strategy:
         Create 20 Day MA, 50 Day MA, and their corresponding Bollinger Bands
         '''
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
-        self.df['20 Day STD'] = self.df['close'].rolling(window=20).std()
-        self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (self.df['20 Day STD'] * 2)
-        self.df['lower Band - 20MA'] = self.df['20 Day MA'] - (self.df['20 Day STD'] * 2)
+        self.daily_std20 = self.df['close'].rolling(window=20).std()
+        self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (self.daily_std20 * 2)
+        self.df['lower Band - 20MA'] = self.df['20 Day MA'] - (self.daily_std20 * 2)
         self.df['50 Day MA'] = self.df['close'].rolling(window=50).mean()
-        self.df['50 Day STD'] = self.df['close'].rolling(window=50).std()
-        self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (self.df['50 Day STD'] * 2.5)
-        self.df['lower Band - 50MA'] = self.df['50 Day MA'] - (self.df['50 Day STD'] * 2.5)
+        self.daily_std50 = self.df['close'].rolling(window=50).std()
+        self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (self.daily_std50 * 2.5)
+        self.df['lower Band - 50MA'] = self.df['50 Day MA'] - (self.daily_std50 * 2.5)
         self.df['120 Day MA'] = self.df['close'].rolling(window=120).mean()
         self.df['200 Day MA'] = self.df['close'].rolling(window=200).mean()
 
+    def create_weekly(self):
+        # Calculate weekly MA
+        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
+        self.weekly_ma10 = self.weekly.rolling(10).mean()
+        self.weekly_ma30 = self.weekly.rolling(30).mean()
+        self.weekly_ma40 = self.weekly.rolling(40).mean()
+        
+        # Weekly Bollinger Bands (20-week)
+        self.weekly_ma20 = self.weekly.rolling(20).mean()
+        self.weekly_std20 = self.weekly.rolling(20).std()
+        self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
+        self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
+        
     def calculate_rsi(self):
         '''
         Calculate RSI
@@ -249,18 +262,6 @@ class etf_strategy:
         print("Latest 120 Day MA:", round(self.df[self.df['date']==previous_day]['120 Day MA'].item(), 2))
         print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
         print("Latest 200 Day EMA:", round(self.df[self.df['date']==previous_day]['200 Day EMA'].item(), 2))
-        
-        # Calculate weekly MA
-        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
-        self.weekly_ma10 = self.weekly.rolling(10).mean()
-        self.weekly_ma30 = self.weekly.rolling(30).mean()
-        self.weekly_ma40 = self.weekly.rolling(40).mean()
-        
-        # Weekly Bollinger Bands (20-week)
-        self.weekly_ma20 = self.weekly.rolling(20).mean()
-        self.weekly_std20 = self.weekly.rolling(20).std()
-        self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
-        self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20        
         
         print("Latest 10 Week MA:", round(self.weekly_ma10.iloc[-1], 2))
         print("Latest 20 Week MA:", round(self.weekly_ma20.iloc[-1], 2))
@@ -428,7 +429,7 @@ class etf_strategy:
             
     def plot_weekly_chart(self):
         '''
-        Plot the weekly stock trading charts
+        Plot the weekly etf trading charts
         Including:
         * 10 - 40 weekly MA
         * 20 weekly Bollinger Bands
@@ -442,7 +443,7 @@ class etf_strategy:
         plt.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
         plt.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
         
-        plt.title(f'Weekly stock price for {self.stock_name.upper()}')
+        plt.title(f'Weekly ETF price for {self.etf_code.upper()}')
         plt.legend()
         plt.grid(True)
         plt.xticks(rotation=45) 
