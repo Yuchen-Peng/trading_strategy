@@ -194,18 +194,21 @@ class stock_strategy:
     def create_bb(self):
         '''
         Create 20 Day MA, 50 Day MA, and their corresponding Bollinger Bands
+        Create MA at weekly level
         '''
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
+        daily_std20 = self.df['close'].rolling(window=20).std()
+
         self.df['20 Day STD'] = self.df['close'].rolling(window=20).std()
-        self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (self.df['20 Day STD'] * 2)
-        self.df['Lower Band - 20MA'] = self.df['20 Day MA'] - (self.df['20 Day STD'] * 2)
+        self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (daily_std20 * 2)
+        self.df['Lower Band - 20MA'] = self.df['20 Day MA'] - (daily_std20 * 2)
         self.df['50 Day MA'] = self.df['close'].rolling(window=50).mean()
-        self.df['50 Day STD'] = self.df['close'].rolling(window=50).std()
-        self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (self.df['50 Day STD'] * 2.5)
-        self.df['Lower Band - 50MA'] = self.df['50 Day MA'] - (self.df['50 Day STD'] * 2.5)
+        daily_std50 = self.df['close'].rolling(window=50).std()
+        self.df['Upper Band - 50MA'] = self.df['50 Day MA'] + (daily_std50 * 2.5)
+        self.df['Lower Band - 50MA'] = self.df['50 Day MA'] - (daily_std50 * 2.5)
         self.df['120 Day MA'] = self.df['close'].rolling(window=120).mean()
         self.df['200 Day MA'] = self.df['close'].rolling(window=200).mean()
-
+        
     def calculate_rsi(self):
         '''
         Calculate RSI
@@ -282,6 +285,25 @@ class stock_strategy:
         print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
         print("Latest 200 Day EMA:", round(self.df[self.df['date']==previous_day]['200 Day EMA'].item(), 2))
 
+        # Calculate weekly MA
+        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
+        self.weekly_ma10 = self.weekly.rolling(10).mean()
+        self.weekly_ma30 = self.weekly.rolling(30).mean()
+        self.weekly_ma40 = self.weekly.rolling(40).mean()
+        
+        # Weekly Bollinger Bands (20-week)
+        self.weekly_ma20 = self.weekly.rolling(20).mean()
+        self.weekly_std20 = self.weekly.rolling(20).std()
+        self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
+        self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20        
+        
+        print("Latest 10 Week MA:", round(self.weekly_ma10.iloc[-1], 2))
+        print("Latest 20 Week MA:", round(self.weekly_ma20.iloc[-1], 2))
+        print("Latest 30 Week MA:", round(self.weekly_ma30.iloc[-1], 2))
+        print("Latest 40 Week MA:", round(self.weekly_ma40.iloc[-1], 2))
+        print("Latest Lower Weekly Bollinger Band, 20MA:", round(self.weekly_bb_lower.iloc[-1], 2))
+        print("Latest Higher Weekly Bollinger Band, 20MA:", round(self.weekly_bb_upper.iloc[-1], 2))
+        
         print()
 
         latest_rsi = round(self.df[self.df['date']==previous_day]['RSI'].item(), 2)
@@ -386,9 +408,9 @@ class stock_strategy:
         print('200MA break point:', round(np.mean(last_199day_price),2))
 
 
-    def plot_chart(self, interactive_plot):
+    def plot_daily_chart(self, interactive_plot):
         '''
-        Plot the stock trading charts
+        Plot the daily stock trading charts
         Including:
         * SMA
         * EMA
@@ -473,12 +495,37 @@ class stock_strategy:
             plt.tight_layout()
             plt.show()
 
-    def output(self, interactive_plot: bool = False): 
+    def plot_weekly_chart(self):
+        '''
+        Plot the weekly stock trading charts
+        Including:
+        * 10 - 40 weekly MA
+        * 20 weekly Bollinger Bands
+        '''
+        plt.figure(figsize=(8,4.8))
+        plt.plot(self.weekly.index, self.weekly, label="Weekly Close Price", color="black", linewidth=1)
+        plt.plot(self.weekly_ma10.index, self.weekly_ma10, label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
+        plt.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
+        plt.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
+        
+        plt.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
+        plt.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
+        
+        plt.title(f'Weekly stock price for {self.stock_name.upper()}')
+        plt.legend()
+        plt.grid(True)
+        plt.xticks(rotation=45) 
+        plt.tight_layout()
+        plt.show()
+
+    def output(self, interactive_plot: bool = False, weekly_chart: bool = False): 
         '''        
         Call print_info and plot_chart to output result
         '''
         self.print_info()
-        self.plot_chart(interactive_plot)
+        self.plot_daily_chart(interactive_plot)
+        if weekly_chart:
+            self.plot_weekly_chart()
 
     def return_result(self):
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
