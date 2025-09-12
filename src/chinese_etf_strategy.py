@@ -279,7 +279,7 @@ class etf_strategy:
         else:
             print("Latest RSI:", latest_rsi, Style.RESET_ALL)
 
-        latest_macd = round(self.df[self.df['date']==previous_day]['MACD_diff'].item(), 2)
+        latest_macd = round(self.df[self.df['date']==previous_day]['MACD_diff'].item(), 4)
         if latest_macd < 0:
             print("Latest MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
         elif latest_macd > 0:
