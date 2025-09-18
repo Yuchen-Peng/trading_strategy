@@ -176,7 +176,8 @@ class etf_strategy:
 
     def create_weekly(self):
         # Calculate weekly MA
-        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
+        # self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
+        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").ffill()
         self.weekly_ma10 = self.weekly.rolling(10).mean()
         self.weekly_ma30 = self.weekly.rolling(30).mean()
         self.weekly_ma40 = self.weekly.rolling(40).mean()
