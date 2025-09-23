@@ -331,14 +331,15 @@ class stock_strategy:
         '''
         Solve for the break point solution price for breaking the current MA/BB
         '''
-        df = yf.download(self.stock_name.upper(),
-                         start=(datetime.today() - relativedelta(days=300)).strftime('%Y-%m-%d'),
-                         end=datetime.today().strftime('%Y-%m-%d'),
-                         prepost=True,
-                         auto_adjust=True,
-                         ).droplevel(level='Ticker', axis=1)
-        df = df.reset_index()
-        df.columns = df.columns.str.lower()
+        # df = yf.download(self.stock_name.upper(),
+        #                  start=(datetime.today() - relativedelta(days=300)).strftime('%Y-%m-%d'),
+        #                  end=datetime.today().strftime('%Y-%m-%d'),
+        #                  prepost=True,
+        #                  auto_adjust=True,
+        #                  ).droplevel(level='Ticker', axis=1)
+        # df = df.reset_index()
+        # df.columns = df.columns.str.lower()
+        df = self.df.tail(300)
         # df = df[['close']]
         
         # Define the expression whose roots we want to find
