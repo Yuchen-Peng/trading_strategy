@@ -244,7 +244,7 @@ class stock_strategy:
         Calculate support and resistance using KMean
         '''
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
         else:
             df_plot = self.df
         low_clusters = get_optimum_clusters(df_plot[(df_plot['low']!=df_plot['open'])&(df_plot['low']!=df_plot['close'])][['date',"low"]].set_index('date'), saturation_point)
@@ -263,8 +263,9 @@ class stock_strategy:
         Print out the information needed
         '''
         previous_day = self.df[self.df['date']<datetime.today().strftime('%Y-%m-%d')]['date'].max()
+        # excluding initial 6m to get stable low / high; maybe we don't need this
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
         else:
             df_plot = self.df
         new_price = self.ticker['Close'].tolist()[0]
@@ -418,8 +419,9 @@ class stock_strategy:
         * Support and Resistance
         * MACD
         '''
+        # Start from month-6 to have full Bollingerband
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
         else:
             df_plot = self.df
         df_new = self.ticker.reset_index()
@@ -503,8 +505,8 @@ class stock_strategy:
         * 20 weekly Bollinger Bands
         '''
         plt.figure(figsize=(8,4.8))
-        plt.plot(self.weekly.index, self.weekly, label="Weekly Close Price", color="black", linewidth=1)
-        plt.plot(self.weekly_ma10.index, self.weekly_ma10, label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
+        plt.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
+        plt.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma20[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
         plt.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
         plt.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
         
@@ -528,11 +530,7 @@ class stock_strategy:
             self.plot_weekly_chart()
 
     def return_result(self):
-        if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)]
-        else:
-            df_plot = self.df
-        return df_plot
+        return self.df
 
     def latest_metric(self, realtime=True, imputed_value=None, print_result=True):
         '''
