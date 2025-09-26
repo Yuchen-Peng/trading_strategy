@@ -83,6 +83,20 @@ class commodity_strategy:
         self.df['120 Day MA'] = self.df['close'].rolling(window=120).mean()
         self.df['200 Day MA'] = self.df['close'].rolling(window=200).mean()
 
+    def create_weekly(self):
+        # Calculate weekly MA
+        # self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").last()
+        self.weekly = self.df[['date', 'close']].set_index('date')['close'].resample("W-FRI").ffill()
+        self.weekly_ma10 = self.weekly.rolling(10).mean()
+        self.weekly_ma30 = self.weekly.rolling(30).mean()
+        self.weekly_ma40 = self.weekly.rolling(40).mean()
+        
+        # Weekly Bollinger Bands (20-week)
+        self.weekly_ma20 = self.weekly.rolling(20).mean()
+        self.weekly_std20 = self.weekly.rolling(20).std()
+        self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
+        self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
+        
     def calculate_rsi(self):
         '''
         Calculate RSI
@@ -159,8 +173,14 @@ class commodity_strategy:
         print("Latest 200 Day MA:", round(self.df[self.df['date']==previous_day]['200 Day MA'].item(), 2))
         print("Latest 200 Day EMA:", round(self.df[self.df['date']==previous_day]['200 Day EMA'].item(), 2))
 
+        print("Latest 10 Week MA:", round(self.weekly_ma10.iloc[-1], 2))
+        print("Latest 20 Week MA:", round(self.weekly_ma20.iloc[-1], 2))
+        print("Latest 30 Week MA:", round(self.weekly_ma30.iloc[-1], 2))
+        print("Latest 40 Week MA:", round(self.weekly_ma40.iloc[-1], 2))
+        print("Latest Lower Weekly Bollinger Band, 20MA:", round(self.weekly_bb_lower.iloc[-1], 2))
+        print("Latest Higher Weekly Bollinger Band, 20MA:", round(self.weekly_bb_upper.iloc[-1], 2))
         print()
-
+        
         latest_rsi = round(self.df[self.df['date']==previous_day]['RSI'].item(), 2)
         if latest_rsi > 70:
             print("Latest RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
@@ -311,7 +331,30 @@ class commodity_strategy:
             
             plt.tight_layout()
             plt.show()
-
+            
+    def plot_weekly_chart(self):
+        '''
+        Plot the weekly etf trading charts
+        Including:
+        * 10 - 40 weekly MA
+        * 20 weekly Bollinger Bands
+        '''
+        plt.figure(figsize=(8,4.8))
+        plt.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
+        plt.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma10[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
+        plt.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
+        plt.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
+        
+        plt.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
+        plt.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
+        
+        plt.title(f'Weekly ETF price for {self.etf_code.upper()}')
+        plt.legend()
+        plt.grid(True)
+        plt.xticks(rotation=45) 
+        plt.tight_layout()
+        plt.show()
+        
     def output(self, interactive_plot: bool = False):    
         '''        
         Call print_info and plot_chart to output result

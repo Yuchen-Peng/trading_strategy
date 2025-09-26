@@ -454,7 +454,7 @@ class etf_strategy:
         '''
         plt.figure(figsize=(8,4.8))
         plt.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
-        plt.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma20[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
+        plt.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma10[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
         plt.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
         plt.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
         
@@ -517,7 +517,7 @@ class etf_strategy:
         df_check['RSI'] = 100 - (100 / (1 + rs))
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
         self.curr_rsi = latest_rsi
-        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
+        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 4)
         self.curr_macd = latest_macd
         if print_result:
             if latest_rsi > 70:
@@ -570,7 +570,7 @@ class etf_strategy:
         df_check['RSI'] = 100 - (100 / (1 + rs))
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
         self.infer_rsi = latest_rsi
-        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
+        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 4)
         self.infer_macd = latest_macd
         if print_result:
             if latest_rsi > 70:
