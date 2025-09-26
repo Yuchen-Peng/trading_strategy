@@ -54,6 +54,7 @@ class commodity_strategy:
 
         self.calculate_ema()
         self.create_bb()
+        self.create_weekly()
         self.calculate_rsi()
         self.create_macd()
         if self.strategy == 'daily':
