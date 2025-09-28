@@ -170,6 +170,7 @@ class etf_strategy:
         self.calculate_ema()
         self.create_bb()
         self.create_weekly()
+        self.calcuate_rolling_vwap()
         self.calculate_rsi()
         self.create_macd()
         if self.strategy == 'daily':
@@ -212,6 +213,26 @@ class etf_strategy:
         self.weekly_std20 = self.weekly.rolling(20).std()
         self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
         self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
+
+    def calcuate_rolling_vwap(self):
+        tp = (self.df.set_index('date')['high'] + self.df.set_index('date')['low'] + self.df.set_index('date')['close']) / 3
+        pv = tp*self.df.set_index('date')['volume']
+        # periods = [5, 10, 20, 50, 200]
+        rolling_pv = pv.rolling(window=5).sum()
+        rolling_volume = self.df.set_index('date')['volume'].rolling(window=5).sum()
+        self.vwap_5d = rolling_pv / rolling_volume
+        rolling_pv = pv.rolling(window=10).sum()
+        rolling_volume = self.df.set_index('date')['volume'].rolling(window=10).sum()
+        self.vwap_10d = rolling_pv / rolling_volume
+        rolling_pv = pv.rolling(window=20).sum()
+        rolling_volume = self.df.set_index('date')['volume'].rolling(window=20).sum()
+        self.vwap_20d = rolling_pv / rolling_volume
+        rolling_pv = pv.rolling(window=50).sum()
+        rolling_volume = self.df.set_index('date')['volume'].rolling(window=50).sum()
+        self.vwap_50d = rolling_pv / rolling_volume     
+        rolling_pv = pv.rolling(window=200).sum()
+        rolling_volume = self.df.set_index('date')['volume'].rolling(window=200).sum()
+        self.vwap_200d = rolling_pv / rolling_volume
         
     def calculate_rsi(self):
         '''
@@ -252,6 +273,30 @@ class etf_strategy:
         high_centers = np.sort(high_centers, axis=0)
         return low_centers, high_centers
 
+    def calculate_anchored_vwap(self, start_date=self.start, plot=True):
+        anchored_df = self.df[self.df['date'] >= start_date]
+        anchored_df.set_index('date', inplace=True)
+        # Ensure the DataFrame index is a datetime object for proper comparison
+        if not isinstance(anchored_df.index, pd.DatetimeIndex):
+            anchored_df.index = pd.to_datetime(anchored_df.index)
+    
+        anchored_df['tp'] = (anchored_df['high'] + anchored_df['low'] + anchored_df['close']) / 3
+        anchored_df['pv'] = anchored_df['tp'] * anchored_df['volume']
+    
+        cumulative_pv = anchored_df['pv'].cumsum()
+        cumulative_volume = anchored_df['volume'].cumsum()
+        anchored_vwap_series = cumulative_pv / cumulative_volume
+
+        print(f'Latest anchored VWAP since {start_date} is {anchored_vwap_series.iloc[-1]}')
+
+        # directly plot
+        if plot:
+            ax = plot_candlestick(anchored_df.reset_index(), figsize=(32,8))
+            ax.plot(anchored_df.index, anchored_vwap_series, ls='--', label='AWAP')
+            ax.set_title(f'{self.stock_name.upper()}: daily price vs anchored VWAP since {start_date}')
+            ax.grid(True, alpha=0.5)
+            ax.legend()
+            
     def print_info(self):
         '''
         Print out the information needed
@@ -468,6 +513,29 @@ class etf_strategy:
         plt.tight_layout()
         plt.show()
         
+    def plot_daily_vwap(self):
+        if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
+        else:
+            df_plot = self.df
+        df_new = self.ticker.reset_index()
+        df_new.columns = df_new.columns.str.lower()
+        df_plot = pd.concat([df_plot, df_new[['date', 'close', 'high', 'low', 'open', 'volume']]]) 
+        ax = plot_candlestick(df_plot, figsize=(32,8))
+        print(f"Latest 5D VWAP: {self.vwap_5d.iloc[-1]}")
+        print(f"Latest 10D VWAP: {self.vwap_10d.iloc[-1]}")
+        print(f"Latest 20D VWAP: {self.vwap_20d.iloc[-1]}")
+        print(f"Latest 50D VWAP: {self.vwap_50d.iloc[-1]}")
+        print(f"Latest 200D VWAP: {self.vwap_200d.iloc[-1]}")
+        ax.plot(self.vwap_5d[~self.vwap_200d.isna()].index, self.vwap_5d[~self.vwap_200d.isna()], label='5D VWAP')
+        ax.plot(self.vwap_10d[~self.vwap_200d.isna()].index, self.vwap_10d[~self.vwap_200d.isna()], label='10D VWAP')
+        ax.plot(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d[~self.vwap_200d.isna()], label='20D VWAP')
+        ax.plot(self.vwap_50d[~self.vwap_200d.isna()].index, self.vwap_50d[~self.vwap_200d.isna()], label='50D VWAP')
+        ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP')
+        ax.set_title(f'{self.stock_name.upper()}: daily price vs daily VWAPs')
+        ax.grid(True, alpha=0.5)
+        ax.legend()
+    
     def output(self, interactive_plot: bool = False, weekly_chart: bool = False):    
         '''        
         Call print_info and plot_chart to output result
