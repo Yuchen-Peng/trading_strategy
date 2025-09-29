@@ -280,6 +280,7 @@ class stock_strategy:
         return low_centers, high_centers
 
     def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True):
+        # problem: too slow
         anchored_df = self.df[self.df['date'] >= start_date]
         anchored_df.set_index('date', inplace=True)
         # Ensure the DataFrame index is a datetime object for proper comparison
@@ -594,7 +595,7 @@ class stock_strategy:
         ax.plot(self.vwap_10d[~self.vwap_200d.isna()].index, self.vwap_10d[~self.vwap_200d.isna()], label='10D VWAP')
         ax.plot(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d[~self.vwap_200d.isna()], label='20D VWAP')
         ax.plot(self.vwap_50d[~self.vwap_200d.isna()].index, self.vwap_50d[~self.vwap_200d.isna()], label='50D VWAP')
-        ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP')
+        ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP, usually too slow')
         ax.set_ylabel('Price')
         ax.set_title(f'{self.stock_name.upper()}: daily price vs daily VWAPs')
         ax.grid(True, alpha=0.5)
