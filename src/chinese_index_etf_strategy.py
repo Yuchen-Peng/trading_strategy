@@ -522,7 +522,7 @@ class etf_strategy:
         
     def plot_daily_vwap(self):
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=9)]
         else:
             df_plot = self.df
         df_new = self.ticker.reset_index()
@@ -541,8 +541,13 @@ class etf_strategy:
         ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP')
         ax.set_title(f'{self.etf_code.upper()}: daily price vs daily VWAPs')
         ax.grid(True, alpha=0.5)
+        ax2 = ax.twinx()
+        ax2.bar(df_plot['date'], df_plot['volume'], alpha=0.3, color='orange', label='Daily Volume')
+        ax2.set_ylabel('Volume')
+        ax2.tick_params(axis='y', labelcolor='orange')
         ax.legend()
-    
+        plt.show()
+        
     def output(self, interactive_plot: bool = False, weekly_chart: bool = False):    
         '''        
         Call print_info and plot_chart to output result

@@ -575,7 +575,8 @@ class stock_strategy:
 
     def plot_daily_vwap(self):
         if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
-            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
+            # to allow for 200D VWAP
+            df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=9)]
         else:
             df_plot = self.df
         df_new = self.ticker.reset_index()
@@ -587,15 +588,23 @@ class stock_strategy:
         print(f"Latest 20D VWAP: {self.vwap_20d.iloc[-1]}")
         print(f"Latest 50D VWAP: {self.vwap_50d.iloc[-1]}")
         print(f"Latest 200D VWAP: {self.vwap_200d.iloc[-1]}")
+
+        ax.plot(df_plot['date'], df_plot['close'], ls='--', label='Daily close price')
         ax.plot(self.vwap_5d[~self.vwap_200d.isna()].index, self.vwap_5d[~self.vwap_200d.isna()], label='5D VWAP')
         ax.plot(self.vwap_10d[~self.vwap_200d.isna()].index, self.vwap_10d[~self.vwap_200d.isna()], label='10D VWAP')
         ax.plot(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d[~self.vwap_200d.isna()], label='20D VWAP')
         ax.plot(self.vwap_50d[~self.vwap_200d.isna()].index, self.vwap_50d[~self.vwap_200d.isna()], label='50D VWAP')
         ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP')
+        ax.set_ylabel('Price')
         ax.set_title(f'{self.stock_name.upper()}: daily price vs daily VWAPs')
         ax.grid(True, alpha=0.5)
+        ax2 = ax.twinx()
+        ax2.bar(df_plot['date'], df_plot['volume'], alpha=0.3, color='orange', label='Daily Volume')
+        ax2.set_ylabel('Volume')
+        ax2.tick_params(axis='y', labelcolor='orange')
         ax.legend()
-    
+        plt.show()
+
     def output(self, interactive_plot: bool = False, weekly_chart: bool = False): 
         '''        
         Call print_info and plot_chart to output result
