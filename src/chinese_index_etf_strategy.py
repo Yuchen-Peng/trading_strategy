@@ -38,10 +38,10 @@ def etf_regression(etf_code,
                                end_date=end,
                                adjust=adjust)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-    elif source == "index" and etf_code[0:3] == "csi":
+    elif source == "index" and etf_code[0:3].lower() == "csi":
         df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:], start_date=regression_start, end_date=end)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-    elif source == "index" and etf_code[0:2] == "sh":
+    elif source == "index" and etf_code[0:2].lower() == "sh":
         df_etf = ak.stock_zh_index_daily_em(symbol=etf_code, start_date=regression_start, end_date=end)
     else:
         print("Index / ETF source not recognized")
@@ -141,14 +141,14 @@ class etf_strategy:
             # Common akshare columns for ETF historical data might include:
             # '日期' (date), '开盘' (Open), '收盘' (close), '最高' (high), '最低' (low), '成交量' (Volume)
             self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-        elif source == "index" and etf_code[0:3] == "csi":
+        elif source == "index" and etf_code[0:3].lower() == "csi":
             self.df = ak.stock_zh_index_hist_csindex(
             	symbol=self.etf_code[3:],
             	start_date=self.start,
             	end_date=self.end
             )
             self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-        elif source == "index" and etf_code[0:2] == "sh":
+        elif source == "index" and etf_code[0:2].lower() == "sh":
             self.df = ak.stock_zh_index_daily_em(
             	symbol=self.etf_code,
             	start_date=self.start,
@@ -273,7 +273,7 @@ class etf_strategy:
         high_centers = np.sort(high_centers, axis=0)
         return low_centers, high_centers
 
-    def calculate_anchored_vwap(self, start_date=self.start, plot=True):
+    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True):
         anchored_df = self.df[self.df['date'] >= start_date]
         anchored_df.set_index('date', inplace=True)
         # Ensure the DataFrame index is a datetime object for proper comparison
@@ -292,10 +292,17 @@ class etf_strategy:
         # directly plot
         if plot:
             ax = plot_candlestick(anchored_df.reset_index(), figsize=(32,8))
+            ax.plot(anchored_df.index, anchored_df['close'], ls='--', label='Daily close price')
             ax.plot(anchored_df.index, anchored_vwap_series, ls='--', label='AWAP')
-            ax.set_title(f'{self.stock_name.upper()}: daily price vs anchored VWAP since {start_date}')
+            ax.set_ylabel('Price')
+            ax.set_title(f'{self.etf_code.upper()}: daily price vs anchored VWAP since {start_date}')
             ax.grid(True, alpha=0.5)
+            ax2 = ax.twinx()
+            ax2.bar(anchored_df.index, anchored_df['volume'], alpha=0.3, color='orange', label='Daily Volume')
+            ax2.set_ylabel('Volume')
+            ax2.tick_params(axis='y', labelcolor='orange')
             ax.legend()
+            plt.show()
             
     def print_info(self):
         '''
@@ -532,7 +539,7 @@ class etf_strategy:
         ax.plot(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d[~self.vwap_200d.isna()], label='20D VWAP')
         ax.plot(self.vwap_50d[~self.vwap_200d.isna()].index, self.vwap_50d[~self.vwap_200d.isna()], label='50D VWAP')
         ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP')
-        ax.set_title(f'{self.stock_name.upper()}: daily price vs daily VWAPs')
+        ax.set_title(f'{self.etf_code.upper()}: daily price vs daily VWAPs')
         ax.grid(True, alpha=0.5)
         ax.legend()
     

@@ -298,10 +298,18 @@ class stock_strategy:
         # directly plot
         if plot:
             ax = plot_candlestick(anchored_df.reset_index(), figsize=(32,8))
+            ax.plot(anchored_df.index, anchored_df['close'], ls='--', label='Daily close price')
             ax.plot(anchored_df.index, anchored_vwap_series, ls='--', label='AWAP')
+            ax.set_ylabel('Price')
             ax.set_title(f'{self.stock_name.upper()}: daily price vs anchored VWAP since {start_date}')
             ax.grid(True, alpha=0.5)
+            ax2 = ax.twinx()
+            ax2.bar(anchored_df.index, anchored_df['volume'], alpha=0.3, color='orange', label='Daily Volume')
+            ax2.set_ylabel('Volume')
+            ax2.tick_params(axis='y', labelcolor='orange')
             ax.legend()
+            plt.show()
+
 
     def print_info(self):
         '''
