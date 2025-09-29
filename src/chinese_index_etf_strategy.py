@@ -525,9 +525,6 @@ class etf_strategy:
             df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=9)]
         else:
             df_plot = self.df
-        df_new = self.ticker.reset_index()
-        df_new.columns = df_new.columns.str.lower()
-        df_plot = pd.concat([df_plot, df_new[['date', 'close', 'high', 'low', 'open', 'volume']]]) 
         ax = plot_candlestick(df_plot, figsize=(32,8))
         print(f"Latest 5D VWAP: {self.vwap_5d.iloc[-1]}")
         print(f"Latest 10D VWAP: {self.vwap_10d.iloc[-1]}")
