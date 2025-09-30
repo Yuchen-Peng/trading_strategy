@@ -194,8 +194,7 @@ class stock_strategy:
 
     def create_bb(self):
         '''
-        Create 20 Day MA, 50 Day MA, and their corresponding Bollinger Bands
-        Create MA at weekly level
+        Create 5 Day MA; 20 Day MA, 50 Day MA, and their corresponding Bollinger Bands
         '''
         self.df['5 Day MA'] = self.df['close'].rolling(window=5).mean()
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
