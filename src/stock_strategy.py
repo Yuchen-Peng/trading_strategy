@@ -184,8 +184,9 @@ class stock_strategy:
 
     def calculate_ema(self):
         '''
-        Calculate 12 Day EMA & 26 Day EMA (for MACD), and 50 Day EMA & 200 Day EMA
+        Calculate 5 Day EMA, 12 Day EMA & 26 Day EMA (for MACD), and 50 Day EMA & 200 Day EMA
         '''
+        self.df['5 Day EMA'] = self.df['close'].ewm(span=5, adjust=False).mean()
         self.df['12 Day EMA'] = self.df['close'].ewm(span=12, adjust=False).mean()
         self.df['26 Day EMA'] = self.df['close'].ewm(span=26, adjust=False).mean()
         self.df['50 Day EMA'] = self.df['close'].ewm(span=50, adjust=False).mean()
@@ -196,6 +197,7 @@ class stock_strategy:
         Create 20 Day MA, 50 Day MA, and their corresponding Bollinger Bands
         Create MA at weekly level
         '''
+        self.df['5 Day MA'] = self.df['close'].rolling(window=5).mean()
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
         self.daily_std20 = self.df['close'].rolling(window=20).std()
         self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (self.daily_std20 * 2)
@@ -339,6 +341,8 @@ class stock_strategy:
             print('* Current stock price:', round(new_price,2))
         print('* Recent high:', round(df_plot['high'].max(),2))
         print('* Current stock price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
+        print("Latest 5 Day MA:", round(self.df[self.df['date']==previous_day]['5 Day MA'].item(), 2))
+        print("Latest 5 Day EMA:", round(self.df[self.df['date']==previous_day]['5 Day EMA'].item(), 2))
         print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
         print("Latest Lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 20MA'].item(), 2))
         print("Latest Higher Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 20MA'].item(), 2))
@@ -399,11 +403,12 @@ class stock_strategy:
         
         # Define the expression whose roots we want to find
         # fsolve is not satisfying; provide analytical solution
-        
-        last_19day_price = df['close'][-20:-1]
-        last_49day_price = df['close'][-50:-1]
-        last_119day_price = df['close'][-120:-1]
-        last_199day_price = df['close'][-200:-1]
+
+        last_4day_price = df['close'][-4:]
+        last_19day_price = df['close'][-19:]
+        last_49day_price = df['close'][-49:]
+        last_119day_price = df['close'][-119:]
+        last_199day_price = df['close'][-199:]
 
         # last_19day_price = df[df['date'].between(
         #     (datetime.today()-relativedelta(days=19)).strftime('%Y-%m-%d'),
@@ -434,18 +439,18 @@ class stock_strategy:
         # price_solution = fsolve(func_50MA_UBB, price_initial_guess)
         # price_solution = fsolve(func_50MA_LBB, price_initial_guess)
 
-        if (2*last_49day_price.sum() - 5*last_19day_price.sum())/3 > 0:
-            print('20MA crosses 50MA at', round((2*last_49day_price.sum() - 5*last_19day_price.sum())/3, 2))
-        if (last_199day_price.sum() - 4*last_49day_price.sum())/3 > 0:
-            print('50MA crosses 200MA at', round((last_199day_price.sum() - 4*last_49day_price.sum())/3, 2))
-
         a1 = np.sum(last_19day_price)
         a2 = np.sum(last_19day_price**2)
         p_ma = np.mean(last_19day_price)
         p_ubb = (562*a1 + np.sqrt((562*a1)**2 - 4*(5339*(99*a1**2-1600*a2))))/5339/2
         p_lbb = (562*a1 - np.sqrt((562*a1)**2 - 4*(5339*(99*a1**2-1600*a2))))/5339/2
         
+        print('5MA break point:', round(np.mean(df['close'][-4:]), 2))
+        if (last_19day_price.sum() - 4*last_4day_price.sum())/3 > 0:
+            print('5MA crosses 20MA at', round((last_19day_price.sum() - 4*last_4day_price.sum())/3, 2))
         print('20MA break point:', round(p_ma,2))
+        if (2*last_49day_price.sum() - 5*last_19day_price.sum())/3 > 0:
+            print('20MA crosses 50MA at', round((2*last_49day_price.sum() - 5*last_19day_price.sum())/3, 2))
         print('20MA Lower Bollinger Band break point:', round(p_lbb,2))
         print('20MA Upper Bollinger Band break point:', round(p_ubb,2))
 
@@ -456,6 +461,8 @@ class stock_strategy:
         p_lbb = (4177*a1 - np.sqrt((4177*a1)**2 - 4*(102336.5*(361.5*a1**2-15625*a2))))/102336.5/2
         
         print('50MA break point:', round(p_ma,2))
+        if (last_199day_price.sum() - 4*last_49day_price.sum())/3 > 0:
+            print('50MA crosses 200MA at', round((last_199day_price.sum() - 4*last_49day_price.sum())/3, 2))
         print('50MA Lower Bollinger Band break point:', round(p_lbb,2))
         print('50MA Upper Bollinger Band break point:', round(p_ubb,2))
 
