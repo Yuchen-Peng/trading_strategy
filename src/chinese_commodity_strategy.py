@@ -335,7 +335,7 @@ class commodity_strategy:
             
     def plot_weekly_chart(self):
         '''
-        Plot the weekly etf trading charts
+        Plot the weekly commodity trading charts
         Including:
         * 10 - 40 weekly MA
         * 20 weekly Bollinger Bands
@@ -349,7 +349,7 @@ class commodity_strategy:
         plt.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
         plt.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
         
-        plt.title(f'Weekly ETF price for {self.etf_code.upper()}')
+        plt.title(f'Weekly commodity price for {self.commodity_code.upper()}')
         plt.legend()
         plt.grid(True)
         plt.xticks(rotation=45) 
