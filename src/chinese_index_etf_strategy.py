@@ -38,11 +38,11 @@ def etf_regression(etf_code,
                                end_date=end,
                                adjust=adjust)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-    elif source == "index" and etf_code[0:3].lower() == "csi":
-        df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:], start_date=regression_start, end_date=end)
+    elif source == "index" and etf_code[0:3].upper() == "CSI":
+        df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:].upper(), start_date=regression_start, end_date=end)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-    elif source == "index" and etf_code[0:2].lower() == "sh":
-        df_etf = ak.stock_zh_index_daily_em(symbol=etf_code, start_date=regression_start, end_date=end)
+    elif source == "index" and etf_code[0:2].lower() in ["sh", "sz"]:
+        df_etf = ak.stock_zh_index_daily_em(symbol=etf_code.lower(), start_date=regression_start, end_date=end)
     else:
         print("Index / ETF source not recognized")
         
@@ -130,7 +130,7 @@ class etf_strategy:
 
         if source == "etf":
             self.df = ak.fund_etf_hist_em(
-            	symbol=self.etf_code.upper(),
+            	symbol=self.etf_code,
             	start_date=self.start,
             	end_date=self.end,
             	period='daily',  # Default to daily,
@@ -141,16 +141,16 @@ class etf_strategy:
             # Common akshare columns for ETF historical data might include:
             # '日期' (date), '开盘' (Open), '收盘' (close), '最高' (high), '最低' (low), '成交量' (Volume)
             self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-        elif source == "index" and etf_code[0:3].lower() == "csi":
+        elif source == "index" and etf_code[0:3].upper() == "CSI":
             self.df = ak.stock_zh_index_hist_csindex(
-            	symbol=self.etf_code[3:],
+            	symbol=self.etf_code[3:].upper(),
             	start_date=self.start,
             	end_date=self.end
             )
             self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
-        elif source == "index" and etf_code[0:2].lower() == "sh":
+        elif source == "index" and etf_code[0:2].lower() in ["sh", "sz"]:
             self.df = ak.stock_zh_index_daily_em(
-            	symbol=self.etf_code,
+            	symbol=self.etf_code.lower(),
             	start_date=self.start,
             	end_date=self.end
             )
