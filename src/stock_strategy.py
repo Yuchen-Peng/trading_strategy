@@ -176,7 +176,7 @@ class stock_strategy:
         self.calculate_ema()
         self.create_bb()
         self.create_weekly()
-        self.calcuate_rolling_vwap()
+        self.calculate_rolling_vwap()
         self.calculate_rsi()
         self.create_macd()
         if self.strategy == 'daily':
@@ -221,7 +221,7 @@ class stock_strategy:
         self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
         self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
 
-    def calcuate_rolling_vwap(self):
+    def calculate_rolling_vwap(self):
         tp = (self.df.set_index('date')['high'] + self.df.set_index('date')['low'] + self.df.set_index('date')['close']) / 3
         pv = tp*self.df.set_index('date')['volume']
         # periods = [5, 10, 20, 50, 200]
