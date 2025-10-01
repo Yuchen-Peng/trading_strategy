@@ -97,7 +97,7 @@ def etf_regression(etf_code,
         plt.figure(figsize=(10, 6))
         # plt.scatter(df_reg['days_since_start'], df_reg['close'], label='Original Data')
         # plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
-        plt.scatter(df_reg['date'], df_reg['close'], label='Original Data')
+        plt.scatter(df_reg['date'], df_reg['close'], label='Daily Close Price')
         plt.plot(df_reg['date'], fitted_curve, 'r-', label='Fitted Curve')
         plt.xlabel('Days Since Start')
         plt.ylabel('Price')
