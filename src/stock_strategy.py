@@ -240,6 +240,20 @@ class stock_strategy:
         rolling_pv = pv.rolling(window=200).sum()
         rolling_volume = self.df.set_index('date')['volume'].rolling(window=200).sum()
         self.vwap_200d = rolling_pv / rolling_volume
+        # calculate band for vwap
+        log_vwap_20d = np.log(self.vwap_20d)
+        rolling_std_20d = log_vwap_20d.rolling(window=20).std()
+        self.vwap_20d_upper_1 = self.vwap_20d * np.exp(1*rolling_std_20d)
+        self.vwap_20d_lower_1 = self.vwap_20d * np.exp(-1*rolling_std_20d)
+        self.vwap_20d_upper_2 = self.vwap_20d * np.exp(2*rolling_std_20d)
+        self.vwap_20d_lower_2 = self.vwap_20d * np.exp(-2*rolling_std_20d)
+        # Just in case 10d needed
+        log_vwap_10d = np.log(self.vwap_10d)
+        rolling_std_10d = log_vwap_10d.rolling(window=10).std()
+        self.vwap_10d_upper_1 = self.vwap_10d * np.exp(1*rolling_std_10d)
+        self.vwap_10d_lower_1 = self.vwap_10d * np.exp(-1*rolling_std_10d)
+        self.vwap_10d_upper_2 = self.vwap_10d * np.exp(2*rolling_std_10d)
+        self.vwap_10d_lower_2 = self.vwap_10d * np.exp(-2*rolling_std_10d)    
     
     def calculate_rsi(self):
         '''
@@ -287,21 +301,27 @@ class stock_strategy:
         # Ensure the DataFrame index is a datetime object for proper comparison
         if not isinstance(anchored_df.index, pd.DatetimeIndex):
             anchored_df.index = pd.to_datetime(anchored_df.index)
-    
         anchored_df['tp'] = (anchored_df['high'] + anchored_df['low'] + anchored_df['close']) / 3
         anchored_df['pv'] = anchored_df['tp'] * anchored_df['volume']
-    
         cumulative_pv = anchored_df['pv'].cumsum()
         cumulative_volume = anchored_df['volume'].cumsum()
         anchored_vwap_series = cumulative_pv / cumulative_volume
-
         print(f'Latest anchored VWAP since {start_date} is {anchored_vwap_series.iloc[-1]}')
-
+        # anchored vwap band
+        log_anchored_vwap = np.log(anchored_vwap_series)
+        anchored_vwap_std = log_anchored_vwap.expanding().std()
+        anchored_vwap_upper_1 = anchored_vwap_series * np.exp(1*anchored_vwap_std)
+        anchored_vwap_lower_1 = anchored_vwap_series * np.exp(-1*anchored_vwap_std)
+        anchored_vwap_upper_2 = anchored_vwap_series * np.exp(2*anchored_vwap_std)
+        anchored_vwap_lower_2 = anchored_vwap_series * np.exp(-2*anchored_vwap_std)   
+        
         # directly plot
         if plot:
             ax = plot_candlestick(anchored_df.reset_index(), figsize=(32,8))
             ax.plot(anchored_df.index, anchored_df['close'], ls='--', label='Daily close price')
             ax.plot(anchored_df.index, anchored_vwap_series, ls='--', label='AWAP')
+            ax.fill_between(anchored_df.index, anchored_vwap_upper_1, anchored_vwap_lower_1, color='gray', alpha=0.3)
+            ax.fill_between(anchored_df.index, anchored_vwap_upper_2, anchored_vwap_lower_2, color='gray', alpha=0.15)
             ax.set_ylabel('Price')
             ax.set_title(f'{self.stock_name.upper()}: daily price vs anchored VWAP since {start_date}')
             ax.grid(True, alpha=0.5)
@@ -615,6 +635,8 @@ class stock_strategy:
         ax.plot(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d[~self.vwap_200d.isna()], label='20D VWAP; look for break and clear uptrend/downtrend')
         ax.plot(self.vwap_50d[~self.vwap_200d.isna()].index, self.vwap_50d[~self.vwap_200d.isna()], label='50D VWAP; look for break and clear uptrend/downtrend')
         ax.plot(self.vwap_200d.index, self.vwap_200d, label='200D VWAP, usually too slow')
+        ax.fill_between(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d_upper_1[~self.vwap_200d.isna()], self.vwap_20d_lower_2[~self.vwap_200d.isna()], color='gray', alpha=0.3)
+        ax.fill_between(self.vwap_20d[~self.vwap_200d.isna()].index, self.vwap_20d_upper_2[~self.vwap_200d.isna()], self.vwap_20d_lower_2[~self.vwap_200d.isna()], color='gray', alpha=0.15)
         ax.set_ylabel('Price')
         ax.set_title(f'{self.stock_name.upper()}: daily price vs daily VWAPs')
         ax.grid(True, alpha=0.5)
