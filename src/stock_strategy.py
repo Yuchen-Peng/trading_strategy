@@ -16,9 +16,8 @@ from math import ceil, floor
 from utils import plot_candlestick, exponential_func, get_optimum_clusters
 
 def stock_regression(stock_name,
-                     start='2010-01-01',
-                     end=datetime.today(),
                      regression_start='2010-01-01',
+                     end=datetime.today(),
                      detailed=False,
                     ):
     '''
@@ -27,7 +26,6 @@ def stock_regression(stock_name,
     Setting auto_adjust to True
     '''
     df_stock = yf.download(stock_name.upper(),
-                           # start=start,
                            start=regression_start,
                            end=end, 
                            prepost=True,
