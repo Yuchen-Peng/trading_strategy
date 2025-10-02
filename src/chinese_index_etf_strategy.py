@@ -64,30 +64,31 @@ def etf_regression(etf_code,
     df_etf = df_etf.reset_index()
     df_etf['log_price'] = np.log(df_etf['close'])
 
-    # df_reg = df_etf[df_etf['date']>=pd.to_datetime(regression_start)]
     df_reg = df_etf
     df_reg['days_since_start'] = (df_reg['date'] - df_reg['date'].min()).dt.days
 
-    # Assuming your DataFrame is named 'df' and contains columns 'days_since_start' and 'close'
     # Initial guess for parameters
     initial_guess = (df_reg.head(1)['close'].unique()[0], np.log10(df_reg.tail(1)['close'].unique()[0] / df_reg.head(1)['close'].unique()[0])/df_reg.tail(1)['days_since_start'].unique()[0])  # You might need to adjust these initial values based on your data
 
     # Fit the curve
     popt, pcov = curve_fit(exponential_func, df_reg['days_since_start'], df_reg['close'], p0=initial_guess)
-
     a_fit, b_fit = popt
+    # Generate the fitted curve
+    fitted_curve = exponential_func(df_reg['days_since_start'], *popt)
+    # Construct bands, using residual and std in log space
+    log_residuals = df_reg['log_price'] - np.log(fitted_curve)
+    sigma = log_residuals.std()
+    upper_1 = fitted_curve * np.exp(1 * sigma)
+    lower_1 = fitted_curve * np.exp(-1 * sigma)
+    upper_2 = fitted_curve * np.exp(2 * sigma)
+    lower_2 = fitted_curve * np.exp(-2 * sigma)
+    
     if detailed:
         print(f"Annual expected return rate: {(10**(b_fit*365)-1):.2%}")
         print(f"Maximal Drawdown: {max_drawdown:.2%}")
         print(f"Peak date: {peak_date} with price {peak_price}")
         print(f"Trough date: {trough_date.date()} with price {round(max_drawdown_row['low'],2)}")
-        print('Final price extracted:',round(exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit),2))
-        print("R2:", round(r2_score(np.log10(df_reg['close']).values.reshape(-1, 1), (np.log10(a_fit) + b_fit*df_reg['days_since_start'])),4))
-    
-        # Generate the fitted curve
-        # days_range = np.linspace(df_reg['days_since_start'].min(), df_reg['days_since_start'].max(), 100)
-        # fitted_curve = exponential_func(days_range, *popt)
-        fitted_curve = exponential_func(df_reg['days_since_start'], *popt)
+        print("R2:", round(r2_score(np.log10(df_reg['close']).values.reshape(-1, 1), np.log10(fitted_curve)),4))
 
         # For fitted_curve that starts above the actual, the drawdown is not practical as we won't buy there
         # Start from the first place where fitted_curve is below the actual, then becomes larger than actual
@@ -95,17 +96,27 @@ def etf_regression(etf_code,
         print(f"Maximal Drawdown from regression price relative to regression price: {((fitted_curve[index_start:] - df_reg['close'].values[index_start:]) / fitted_curve[index_start:]).max():.2%}")
         # Plot the original data and the fitted curve
         plt.figure(figsize=(10, 6))
-        # plt.scatter(df_reg['days_since_start'], df_reg['close'], label='Original Data')
-        # plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
         plt.scatter(df_reg['date'], df_reg['close'], label='Daily Close Price')
         plt.plot(df_reg['date'], fitted_curve, 'r-', label='Fitted Curve')
+        plt.plot(df_reg['date'], upper_1, 'm--', label='Upper 1σ')
+        plt.plot(df_reg['date'], lower_1, 'm--', label='Lower 1σ')
+        plt.plot(df_reg['date'], upper_2, 'y--', label='Upper 2σ')
+        plt.plot(df_reg['date'], lower_2, 'y--', label='Lower 2σ')
+        plt.fill_between(df_reg['date'], lower_1, upper_1, color='gray', alpha=0.3)
+        plt.fill_between(df_reg['date'], lower_2, upper_2, color='gray', alpha=0.15)
         plt.xlabel('Days Since Start')
         plt.ylabel('Price')
         plt.title('Exponential Curve Fitting for ' + etf_code.upper(), fontsize=16)
         plt.legend(fontsize=16)
         plt.grid(True)
         plt.show()
-    return round(exponential_func(df_reg.tail(1)['days_since_start'].unique()[0],a_fit, b_fit), 2)
+    return {
+        'fitted': round(fitted_curve.iloc[-1],2),
+        'upper_1': round(upper_1.iloc[-1],2),
+        'lower_1': round(lower_1.iloc[-1],2),
+        'upper_2': round(upper_2.iloc[-1],2),
+        'lower_2': round(lower_2.iloc[-1],2),
+    }
 
 
 class etf_strategy:

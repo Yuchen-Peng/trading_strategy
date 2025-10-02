@@ -46,11 +46,9 @@ def stock_regression(stock_name,
     df_stock = df_stock.reset_index()
     df_stock['log_price'] = np.log(df_stock['Close'])
 
-    # df_reg = df_stock[df_stock['Date']>=pd.to_datetime(regression_start)]
     df_reg = df_stock
     df_reg['days_since_start'] = (df_reg['Date'] - df_reg['Date'].min()).dt.days
 
-    # Assuming your DataFrame is named 'df' and contains columns 'days_since_start' and 'Close'
     # Initial guess for parameters
     initial_guess = (df_reg.head(1)['Close'].unique()[0], np.log10(df_reg.tail(1)['Close'].unique()[0] / df_reg.head(1)['Close'].unique()[0])/df_reg.tail(1)['days_since_start'].unique()[0])  # You might need to adjust these initial values based on your data
 
@@ -82,8 +80,6 @@ def stock_regression(stock_name,
         print(f"Maximal Drawdown from regression price relative to regression price: {((fitted_curve[index_start:] - df_reg['Close'].values[index_start:]) / fitted_curve[index_start:]).max():.2%}")
         # Plot the original data and the fitted curve
         plt.figure(figsize=(10, 6))
-        # plt.scatter(df_reg['days_since_start'], df_reg['Close'], label='Original Data')
-        # plt.plot(days_range, fitted_curve, 'r-', label='Fitted Curve')
         plt.scatter(df_reg['Date'], df_reg['Close'], label='Daily Stock Close Price')
         plt.plot(df_reg['Date'], fitted_curve, 'r-', label='Fitted Curve')
         plt.plot(df_reg['Date'], upper_1, 'm--', label='Upper 1σ')
