@@ -423,6 +423,13 @@ class stock_strategy:
             print("Latest RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
         else:
             print("Latest RSI:", latest_rsi, Style.RESET_ALL)
+        latest_rsi_raw = round(self.df[self.df['date']==previous_day]['RSI_raw'].item(), 2)
+        if latest_rsi_raw > 70:
+            print("Latest RSI, raw", Fore.RED + str(latest_rsi_raw), Style.RESET_ALL)
+        elif latest_rsi_raw < 30:
+            print("Latest RSI, raw:", Fore.GREEN + str(latest_rsi_raw), Style.RESET_ALL)
+        else:
+            print("Latest RSI, raw:", latest_rsi_raw, Style.RESET_ALL)
 
         latest_macd = round(self.df[self.df['date']==previous_day]['MACD_diff'].item(), 2)
         if latest_macd < 0:
