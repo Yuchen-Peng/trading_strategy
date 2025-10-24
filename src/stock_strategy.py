@@ -272,9 +272,16 @@ class stock_strategy:
         Calculate RSI
         '''
         delta = self.df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
+        # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        # rs = gain / loss
+        # Wilder's smoothing using EMA with alpha = 1/14
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        window = 14
+        avg_gain = gain.ewm(alpha=1/window, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1/window, adjust=False).mean()
+        rs = avg_gain / avg_loss
         self.df['RSI'] = 100 - (100 / (1 + rs))
 
     def create_macd(self):
@@ -696,9 +703,16 @@ class stock_strategy:
         df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
         df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
         delta = df_check['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
+        # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        # rs = gain / loss
+        # Wilder's smoothing using EMA with alpha = 1/14
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        window = 14
+        avg_gain = gain.ewm(alpha=1/window, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1/window, adjust=False).mean()
+        rs = avg_gain / avg_loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
         self.curr_rsi = latest_rsi
@@ -743,10 +757,18 @@ class stock_strategy:
         df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
         df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
         delta = df_check['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
+        # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        # rs = gain / loss
+        # Wilder's smoothing using EMA with alpha = 1/14
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        window = 14
+        avg_gain = gain.ewm(alpha=1/window, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1/window, adjust=False).mean()
+        rs = avg_gain / avg_loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
+
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
         self.infer_rsi = latest_rsi
         latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
