@@ -639,29 +639,33 @@ class etf_strategy:
         # Make sure 'date' column is datetime before operations
         self.df['date'] = pd.to_datetime(self.df['date'])
 
-        # Create a DataFrame for the new day's data
-        # Ensure the date for today is a datetime object
         today_date = datetime.now(BEIJING_TZ)
-        new_day_df = pd.DataFrame({
-            'date': [today_date],
-            'close': [new_price]
-        })
+        # In some cases, df already contains the latest data
+        if self.df['date'].max().strftime('%Y%m%d') == today_date.strftime('%Y%m%d'):
+            latest_rsi = round(self.df.tail(1)['RSI'].item(), 2)
+            latest_macd = round(self.df.tail(1)['MACD_diff'].item(), 4)
+        else:
+            new_day_df = pd.DataFrame({
+                'date': [today_date],
+                'close': [new_price]
+            })
+    
+            # Concatenate and re-calculate
+            df_check = pd.concat([self.df, new_day_df], ignore_index=True)
+    
+            df_check['12 Day EMA'] = df_check['close'].ewm(span=12, adjust=False).mean()
+            df_check['26 Day EMA'] = df_check['close'].ewm(span=26, adjust=False).mean()
+            df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
+            df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
+            delta = df_check['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df_check['RSI'] = 100 - (100 / (1 + rs))
+            latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
+            latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 4)
 
-        # Concatenate and re-calculate
-        df_check = pd.concat([self.df, new_day_df], ignore_index=True)
-
-        df_check['12 Day EMA'] = df_check['close'].ewm(span=12, adjust=False).mean()
-        df_check['26 Day EMA'] = df_check['close'].ewm(span=26, adjust=False).mean()
-        df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
-        df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
-        delta = df_check['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df_check['RSI'] = 100 - (100 / (1 + rs))
-        latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
         self.curr_rsi = latest_rsi
-        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 4)
         self.curr_macd = latest_macd
         if print_result:
             if latest_rsi > 70:
@@ -692,16 +696,23 @@ class etf_strategy:
         # Make sure 'date' column is datetime before operations
         self.df['date'] = pd.to_datetime(self.df['date'])
 
-        # Create DataFrame for two new days (today and tomorrow)
         today_date = datetime.now(BEIJING_TZ)
         tomorrow_date = datetime.now(BEIJING_TZ) + relativedelta(days=1)
-        two_days_df = pd.DataFrame({
-            'date': [today_date, tomorrow_date],
-            'close': [new_price, new_price] # Assume price holds for tomorrow
-        })
+
+        # In some cases, df already contains the latest data, just need one more new day
+        if self.df['date'].max().strftime('%Y%m%d') == today_date.strftime('%Y%m%d'):
+            future_days_df = pd.DataFrame({
+                'date': [tomorrow_date],
+                'close': [new_price] # Assume price holds for tomorrow
+            })
+        else: # Create DataFrame for two new days (today and tomorrow)
+            future_days_df = pd.DataFrame({
+                'date': [today_date, tomorrow_date],
+                'close': [new_price, new_price] # Assume price holds for tomorrow
+            })
 
         # Concatenate and re-calculate
-        df_check = pd.concat([self.df, two_days_df], ignore_index=True)
+        df_check = pd.concat([self.df, future_days_df], ignore_index=True)
 
         df_check['12 Day EMA'] = df_check['close'].ewm(span=12, adjust=False).mean()
         df_check['26 Day EMA'] = df_check['close'].ewm(span=26, adjust=False).mean()

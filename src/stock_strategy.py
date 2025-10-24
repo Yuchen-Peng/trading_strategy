@@ -206,6 +206,7 @@ class stock_strategy:
     def create_bb(self):
         '''
         Create 5 Day MA; 20 Day MA, 50 Day MA, and their corresponding Bollinger Bands
+        Finding: if a stock price raises stably (daily r), the ratio between current price and 50MA can be approximated by (1+r)**49
         '''
         self.df['5 Day MA'] = self.df['close'].rolling(window=5).mean()
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
