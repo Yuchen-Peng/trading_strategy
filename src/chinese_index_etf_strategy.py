@@ -277,9 +277,10 @@ class etf_strategy:
         Calculate RSI
         '''
         delta = self.df['close'].diff()
-        # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        # rs = gain / loss
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        self.df['RSI_raw'] = 100 - (100 / (1 + rs))
         # Wilder's smoothing using EMA with alpha = 1/14
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
@@ -650,6 +651,7 @@ class etf_strategy:
         # In some cases, df already contains the latest data
         if self.df['date'].max().strftime('%Y%m%d') == today_date.strftime('%Y%m%d'):
             latest_rsi = round(self.df.tail(1)['RSI'].item(), 2)
+            latest_rsi_raw = round(self.df.tail(1)['RSI_raw'].item(), 2)
             latest_macd = round(self.df.tail(1)['MACD_diff'].item(), 4)
         else:
             new_day_df = pd.DataFrame({
@@ -665,9 +667,10 @@ class etf_strategy:
             df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
             df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
             delta = df_check['close'].diff()
-            # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            # rs = gain / loss
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df_check['RSI_raw'] = 100 - (100 / (1 + rs))
             # Wilder's smoothing using EMA with alpha = 1/14
             gain = delta.where(delta > 0, 0)
             loss = -delta.where(delta < 0, 0)
@@ -677,6 +680,7 @@ class etf_strategy:
             rs = avg_gain / avg_loss
             df_check['RSI'] = 100 - (100 / (1 + rs))
             latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
+            latest_rsi_raw = round(df_check.tail(1)['RSI_raw'].item(), 2)
             latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 4)
 
         self.curr_rsi = latest_rsi
@@ -688,6 +692,12 @@ class etf_strategy:
                 print("Current RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
             else:
                 print("Current RSI:", latest_rsi, Style.RESET_ALL)
+            if latest_rsi_raw > 70:
+                print("Current RSI raw:", Fore.RED + str(latest_rsi_raw), Style.RESET_ALL)
+            elif latest_rsi_raw < 30:
+                print("Current RSI raw:", Fore.GREEN + str(latest_rsi_raw), Style.RESET_ALL)
+            else:
+                print("Current RSI raw:", latest_rsi_raw, Style.RESET_ALL)            
             if latest_macd < 0:
                 print("Current MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
             elif latest_macd > 0:
@@ -733,9 +743,10 @@ class etf_strategy:
         df_check['MACD'] = df_check['12 Day EMA'] - df_check['26 Day EMA']
         df_check['MACD_signal'] = df_check['MACD'].ewm(span=9, adjust=False).mean()
         delta = df_check['close'].diff()
-        # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        # rs = gain / loss
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df_check['RSI_raw'] = 100 - (100 / (1 + rs))
         # Wilder's smoothing using EMA with alpha = 1/14
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
@@ -746,6 +757,7 @@ class etf_strategy:
         df_check['RSI'] = 100 - (100 / (1 + rs))
         latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
         self.infer_rsi = latest_rsi
+        latest_rsi_raw = round(df_check.tail(1)['RSI_raw'].item(), 2)
         latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 4)
         self.infer_macd = latest_macd
         if print_result:
@@ -755,6 +767,12 @@ class etf_strategy:
                 print("Tomorrow inferred RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
             else:
                 print("Tomorrow inferred RSI:", latest_rsi, Style.RESET_ALL)
+            if latest_rsi_raw > 70:
+                print("Tomorrow inferred RSI raw:", Fore.RED + str(latest_rsi_raw), Style.RESET_ALL)
+            elif latest_rsi_raw < 30:
+                print("Tomorrow inferred RSI raw:", Fore.GREEN + str(latest_rsi_raw), Style.RESET_ALL)
+            else:
+                print("Tomorrow inferred RSI raw:", latest_rsi_raw, Style.RESET_ALL)
             if latest_macd < 0:
                 print("Tomorrow inferred MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
             elif latest_macd > 0:
