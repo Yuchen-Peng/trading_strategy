@@ -639,7 +639,7 @@ def user_function():
 
 # create a custom function for the Candlestick chart
 
-def plot_candlestick(df: pd.DataFrame, figsize=(16, 8)):
+def plot_candlestick(df: pd.DataFrame, ax=None, figsize=(16, 8)):
     '''
     Input: 
     pd.Dataframe of daily stock data downloaded from Yahoo Finance
@@ -651,7 +651,8 @@ def plot_candlestick(df: pd.DataFrame, figsize=(16, 8)):
     data.set_index('date', inplace=True)
 
     # Create a figure and an axis
-    fig, ax = plt.subplots(figsize=figsize)
+    if not ax:
+        fig, ax = plt.subplots(figsize=figsize)
     ax.grid(True, alpha=0.5)
 
     # Convert dates to mdates
