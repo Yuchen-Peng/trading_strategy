@@ -39,14 +39,14 @@ def etf_regression(etf_code,
                                adjust=adjust)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
     elif source == "index" and etf_code[0:3].upper() == "CSI":
-        df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:].upper(), start_date=regression_start, end_date=end, adjust=adjust)
+        df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:].upper(), start_date=regression_start, end_date=end)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
     elif source == "index" and etf_code[0:2].upper() == "HK":
         # ak.stock_hk_index_daily_em cannot return volume
         df_etf = ak.stock_hk_index_daily_sina(symbol=etf_code[2:].upper())
         df_etf = df_etf[df_etf['date'].between(pd.to_datetime(regression_start).date(), pd.to_datetime(end).date())]
     elif source == "index" and etf_code[0:2].lower() in ["sh", "sz"]:
-        df_etf = ak.stock_zh_index_daily_em(symbol=etf_code.lower(), start_date=regression_start, end_date=end, adjust=adjust)
+        df_etf = ak.stock_zh_index_daily_em(symbol=etf_code.lower(), start_date=regression_start, end_date=end)
     else:
         print("Index / ETF source not recognized")
         
