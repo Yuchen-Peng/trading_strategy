@@ -237,6 +237,17 @@ class etf_strategy:
         self.weekly_std20 = self.weekly.rolling(20).std()
         self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
         self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
+        
+        # Calculate weekly summary, so candlestick plot can be generated at weekly level
+        self.weekly_summary = (self.df[['date', 'open', 'high', 'low', 'close']]
+                               .set_index('date').resample('W-FRI')
+                               .agg({
+                                   'open': 'first',
+                                   'high': 'max',
+                                   'low': 'min',
+                                   'close': 'last'
+                                   })
+                              )
 
     def calculate_rolling_vwap(self):
         tp = (self.df.set_index('date')['high'] + self.df.set_index('date')['low'] + self.df.set_index('date')['close']) / 3
