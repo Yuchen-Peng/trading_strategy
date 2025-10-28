@@ -628,26 +628,29 @@ class stock_strategy:
             plt.tight_layout()
             plt.show()
 
-    def plot_weekly_chart(self):
+    def plot_weekly_chart(self, candlestick=False):
         '''
         Plot the weekly stock trading charts
         Including:
         * 10 - 40 weekly MA
         * 20 weekly Bollinger Bands
         '''
-        plt.figure(figsize=(8,4.8))
-        plt.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
-        plt.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma10[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
-        plt.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
-        plt.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
+        if candlestick:
+            df_plot = self.weekly_summary[~self.weekly_ma20.isna()].reset_index()
+            ax = plot_candlestick(df_plot, figsize=(8,4.8))
+        else:
+            fig, ax = plt.subplots(figsize=(8,4.8))
+            ax.grid(True, alpha=0.5)
+            ax.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
+        ax.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma10[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
+        ax.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
+        ax.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
+        ax.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
+        ax.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
         
-        plt.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
-        plt.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
-        
-        plt.title(f'Weekly stock price for {self.stock_name.upper()}')
-        plt.legend()
-        plt.grid(True)
-        plt.xticks(rotation=45) 
+        ax.set_title(f'Weekly stock price for {self.stock_name.upper()}')
+        ax.legend()
+        ax.tick_params(axis='x', rotation=45)
         plt.tight_layout()
         plt.show()
 
@@ -685,14 +688,14 @@ class stock_strategy:
         ax.legend()
         plt.show()
 
-    def output(self, interactive_plot: bool = False, weekly_chart: bool = False): 
+    def output(self, interactive_plot: bool = False, weekly_chart: bool = False, weekly_candlestick: bool = False): 
         '''        
         Call print_info and plot_chart to output result
         '''
         self.print_info()
         self.plot_daily_chart(interactive_plot)
         if weekly_chart:
-            self.plot_weekly_chart()
+            self.plot_weekly_chart(candlestick=weekly_candlestick)
 
     def return_result(self):
         return self.df
