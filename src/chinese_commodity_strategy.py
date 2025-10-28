@@ -97,6 +97,17 @@ class commodity_strategy:
         self.weekly_std20 = self.weekly.rolling(20).std()
         self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
         self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
+
+        # Calculate weekly summary, so candlestick plot can be generated at weekly level
+        self.weekly_summary = (self.df[['date', 'open', 'high', 'low', 'close']]
+                               .set_index('date').resample('W-FRI')
+                               .agg({
+                                   'open': 'first',
+                                   'high': 'max',
+                                   'low': 'min',
+                                   'close': 'last'
+                                   })
+                              )
         
     def calculate_rsi(self):
         '''
@@ -333,26 +344,29 @@ class commodity_strategy:
             plt.tight_layout()
             plt.show()
             
-    def plot_weekly_chart(self):
+    def plot_weekly_chart(self, candlestick=False):
         '''
-        Plot the weekly commodity trading charts
+        Plot the weekly etf trading charts
         Including:
         * 10 - 40 weekly MA
         * 20 weekly Bollinger Bands
         '''
-        plt.figure(figsize=(8,4.8))
-        plt.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
-        plt.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma10[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
-        plt.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
-        plt.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
+        if candlestick:
+            df_plot = self.weekly_summary[~self.weekly_ma20.isna()].reset_index()
+            ax = plot_candlestick(df_plot, figsize=(8,4.8))
+        else:
+            fig, ax = plt.subplots(figsize=(8,4.8))
+            ax.grid(True, alpha=0.5)
+            ax.plot(self.weekly[~self.weekly_ma20.isna()].index, self.weekly[~self.weekly_ma20.isna()], label="Weekly Close Price", color="black", linewidth=1)
+        ax.plot(self.weekly_ma10[~self.weekly_ma20.isna()].index, self.weekly_ma10[~self.weekly_ma20.isna()], label="10-week MA (~50-day)", ls='--', color="blue", linewidth=1)
+        ax.plot(self.weekly_ma30.index, self.weekly_ma30, label="30-week MA (~150-day)", ls='--', color="orange", linewidth=1)
+        ax.plot(self.weekly_ma40.index, self.weekly_ma40, label="40-week MA (~200-day)", ls='--', color="red", linewidth=1)
+        ax.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
+        ax.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
         
-        plt.plot(self.weekly_ma20.index, self.weekly_ma20, label="20-week MA (BB mid)", ls='--', color="green", linewidth=1)
-        plt.fill_between(self.weekly_bb_upper.index, self.weekly_bb_lower, self.weekly_bb_upper, color="gray", alpha=0.2, label="20-week Bollinger Band")
-        
-        plt.title(f'Weekly commodity price for {self.commodity_code.upper()}')
-        plt.legend()
-        plt.grid(True)
-        plt.xticks(rotation=45) 
+        ax.set_title(f'Weekly commodity price for {self.commodity_code.upper()}')
+        ax.legend()
+        ax.tick_params(axis='x', rotation=45)
         plt.tight_layout()
         plt.show()
         
