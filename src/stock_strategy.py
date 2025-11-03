@@ -209,6 +209,7 @@ class stock_strategy:
         Finding: if a stock price raises stably (daily r), the ratio between current price and 50MA can be approximated by (1+r)**49
         '''
         self.df['5 Day MA'] = self.df['close'].rolling(window=5).mean()
+        self.df['10 Day MA'] = self.df['close'].rolling(window=10).mean()
         self.df['20 Day MA'] = self.df['close'].rolling(window=20).mean()
         self.daily_std20 = self.df['close'].rolling(window=20).std()
         self.df['Upper Band - 20MA'] = self.df['20 Day MA'] + (self.daily_std20 * 2)
@@ -406,6 +407,7 @@ class stock_strategy:
         print('* Current stock price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
         print("Latest 5 Day MA:", round(self.df[self.df['date']==previous_day]['5 Day MA'].item(), 2))
         print("Latest 5 Day EMA:", round(self.df[self.df['date']==previous_day]['5 Day EMA'].item(), 2))
+        print("Latest 10 Day MA:", round(self.df[self.df['date']==previous_day]['10 Day MA'].item(), 2))
         print("Latest 20 Day MA:", round(self.df[self.df['date']==previous_day]['20 Day MA'].item(), 2))
         print("Latest Lower Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Lower Band - 20MA'].item(), 2))
         print("Latest Higher Bollinger Band, 20MA:", round(self.df[self.df['date']==previous_day]['Upper Band - 20MA'].item(), 2))
@@ -475,6 +477,7 @@ class stock_strategy:
         # fsolve is not satisfying; provide analytical solution
 
         last_4day_price = df['close'][-4:]
+        last_9day_price = df['close'][-9:]
         last_19day_price = df['close'][-19:]
         last_49day_price = df['close'][-49:]
         last_119day_price = df['close'][-119:]
@@ -515,9 +518,14 @@ class stock_strategy:
         p_ubb = (562*a1 + np.sqrt((562*a1)**2 - 4*(5339*(99*a1**2-1600*a2))))/5339/2
         p_lbb = (562*a1 - np.sqrt((562*a1)**2 - 4*(5339*(99*a1**2-1600*a2))))/5339/2
         
-        print('5MA break point:', round(np.mean(df['close'][-4:]), 2))
+        print('5MA break point:', round(np.mean(last_4day_price), 2))
+        if (last_9day_price.sum() - 2*last_4day_price.sum()) > 0:
+            print('5MA crosses 10MA at', round((last_9day_price.sum() - 2*last_4day_price.sum()), 2))
         if (last_19day_price.sum() - 4*last_4day_price.sum())/3 > 0:
             print('5MA crosses 20MA at', round((last_19day_price.sum() - 4*last_4day_price.sum())/3, 2))
+        print('10MA break point:', round(np.mean(last_9day_price), 2))
+        if (last_19day_price.sum() - 2*last_9day_price.sum()) > 0:
+            print('10MA crosses 20MA at', round((last_19day_price.sum() - 2*last_9day_price.sum()), 2))
         print('20MA break point:', round(p_ma,2))
         if (2*last_49day_price.sum() - 5*last_19day_price.sum())/3 > 0:
             print('20MA crosses 50MA at', round((2*last_49day_price.sum() - 5*last_19day_price.sum())/3, 2))
