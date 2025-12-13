@@ -194,6 +194,21 @@ class stock_strategy:
         if self.strategy == 'daily':
             self.low_centers, self.high_centers = self.support_and_resistance(saturation_point)
 
+    def realtime_df(self, imputed_close=None):
+        df_new = self.ticker.reset_index()
+        df_new.columns = df_new.columns.str.lower()
+        df_new['date'] = pd.to_datetime(df_new['date'])
+        if df_new['date'].iloc[-1].strftime('%Y-%m-%d') == self.df['date'].iloc[-1].strftime('%Y-%m-%d'):
+            df_realtime = self.df[['date', 'open', 'close', 'high', 'low', 'volume']]
+        else:
+            if imputed_close:
+                df_new['close'] = imputed_close
+            df_realtime = pd.concat(
+                [self.df[['date', 'open', 'close', 'high', 'low', 'volume']],
+                 df_new[['date', 'open', 'close', 'high', 'low', 'volume']]]
+            ).reset_index(drop=True)
+        return df_realtime
+        
     def calculate_ema(self):
         '''
         Calculate 5 Day EMA, 12 Day EMA & 26 Day EMA (for MACD), and 50 Day EMA & 200 Day EMA
