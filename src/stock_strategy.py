@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import yfinance as yf
+import math
 from colorama import Fore, Style
 import seaborn as sns
 sns.set(style='darkgrid')
@@ -429,14 +430,14 @@ class stock_strategy:
         
         print()
 
-        latest_rsi = round(self.df[self.df['date']==previous_day]['RSI'].item(), 2)
+        latest_rsi = float(f'{self.df[self.df['date']==previous_day]['RSI'].item():.2g}')
         if latest_rsi > 70:
             print("Latest RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
         elif latest_rsi < 30:
             print("Latest RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
         else:
             print("Latest RSI:", latest_rsi, Style.RESET_ALL)
-        latest_rsi_raw = round(self.df[self.df['date']==previous_day]['RSI_raw'].item(), 2)
+        latest_rsi_raw = float(f'{self.df[self.df['date']==previous_day]['RSI_raw'].item():.2g}')
         if latest_rsi_raw > 70:
             print("Latest RSI, raw", Fore.RED + str(latest_rsi_raw), Style.RESET_ALL)
         elif latest_rsi_raw < 30:
@@ -444,7 +445,7 @@ class stock_strategy:
         else:
             print("Latest RSI, raw:", latest_rsi_raw, Style.RESET_ALL)
 
-        latest_macd = round(self.df[self.df['date']==previous_day]['MACD_diff'].item(), 2)
+        latest_macd = float(f'{self.df[self.df['date']==previous_day]['MACD_diff'].item():.2g}')
         if latest_macd < 0:
             print("Latest MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
         elif latest_macd > 0:
@@ -745,10 +746,11 @@ class stock_strategy:
         avg_loss = loss.ewm(alpha=1/window, adjust=False).mean()
         rs = avg_gain / avg_loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
-        latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
+        latest_rsi = float(f'{df_check.tail(1)['RSI'].item():.2g}')
         self.curr_rsi = latest_rsi
-        latest_rsi_raw = round(df_check.tail(1)['RSI_raw'].item(), 2)
-        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
+        latest_rsi_raw = float(f'{df_check.tail(1)['RSI_raw'].item():.2g}')
+        self.curr_rsi_raw = latest_rsi_raw
+        latest_macd = float(f'{(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item()):.2g}')
         self.curr_macd = latest_macd
         if print_result:
             if latest_rsi > 70:
@@ -808,10 +810,11 @@ class stock_strategy:
         rs = avg_gain / avg_loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
 
-        latest_rsi = round(df_check.tail(1)['RSI'].item(), 2)
+        latest_rsi = float(f'{df_check.tail(1)['RSI'].item():.2g}')
         self.infer_rsi = latest_rsi
-        latest_rsi_raw = round(df_check.tail(1)['RSI_raw'].item(), 2)
-        latest_macd = round(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item(), 2)
+        latest_rsi_raw = float(f'{df_check.tail(1)['RSI_raw'].item():.2g}')
+        self.infer_rsi_raw = latest_rsi_raw
+        latest_macd = float(f'{(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item()):.2g}')
         self.infer_macd = latest_macd
         if print_result:
             if latest_rsi > 70:
