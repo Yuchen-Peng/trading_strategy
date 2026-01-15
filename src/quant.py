@@ -15,7 +15,7 @@ from math import ceil, floor
 
 from utils import plot_candlestick, exponential_func, get_optimum_clusters
 
-def bottom_buy(df_asset, share_outstanding=1, scenario='declining', return_signal=False):
+def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_period=5, return_signal=False):
     '''
     Identify buy signal for a stock touching bottom
     share_outstanding: in the unit of MM
@@ -26,8 +26,8 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', return_signa
     df_asset['price_mt_cond2'] = (df_asset['close'].pct_change(1)*100 > -3)
     df_asset['price_mt_cond3'] = ((df_asset[['open','close']].min(axis=1) - df_asset['low']) > 1.5 * abs(df_asset['open'] - df_asset['close']))
     
-    df_asset['vol_cond1'] = (df_asset['volume'] / df_asset['volume'].rolling(5).mean() < 0.6)
-    df_asset['vol_cond2'] = (df_asset['volume'].shift(1) / df_asset['volume'].rolling(5).mean().shift(1) < 0.6)
+    df_asset['vol_cond1'] = (df_asset['volume'] / df_asset['volume'].rolling(volume_period).mean() < 0.6)
+    df_asset['vol_cond2'] = (df_asset['volume'].shift(1) / df_asset['volume'].rolling(volume_period).mean().shift(1) < 0.6)
     df_asset['vol_cond3'] = (df_asset['volume'] / share_outstanding < 0.03)
     
     delta = df_asset['close'].diff()
@@ -111,8 +111,50 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', return_signa
     if return_signal:
         return df_asset
 
-def peak_sell(df_asset, return_signal=False):
+def peak_sell(df_asset, volume_period=20, return_signal=False):
     '''
     Identify sell signal for a stock touching peak in an uptrend
     '''
+    if 'RSI_raw' in df_asset.columns:
+        rsi_14 = df_asset['RSI_raw']
+    else:
+        delta = df_asset['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi_14 = 100 - (100 / (1 + rs))
+    rsi_condition = (rsi_14>80) & (rsi_14.diff().abs()<2)
     
+    volume = df_asset['volume']
+    volume_ma = volume.rolling(window=volume_period).mean()
+    volume_std = volume.rolling(window=volume_period).std()
+    volume_spike = volume > (volume_ma + 1.5*volume_std)
+    price_change = (df_asset['close'] - df_asset['close'].shift(1)) / df_asset['close'].shift(1) * 100
+    volume_condition = volume_spike & (price_change < 2) & (price_change > -1)
+
+    body_size = abs(df_asset['close'] - df_asset['open'])
+    upper_shadow = df_asset['high'] - np.maximum(df_asset['close'], df_asset['open'])
+    # body_size = abs(df_asset['close'] - df_asset['close'].shift(1))
+    # upper_shadow = df_asset['high'] - np.maximum(df_asset['close'], df_asset['close'].shift(1))
+    long_upper_shadow = upper_shadow > 2*body_size
+    cross_star = (body_size < (df_asset['high']- df_asset['low'])*0.1)
+    price_structure_condition = long_upper_shadow | cross_star
+    
+    sell_signal = rsi_condition.fillna(0) * volume_spike.fillna(0) * long_upper_shadow.fillna(0)
+
+    print("RSI flat:", rsi_condition.iloc[-1])
+    print("Volume spike:", volume_spike.iloc[-1])
+    print("Price change little:", ((price_change < 2) & (price_change > -1)).iloc[-1])
+    print("Volume condition:", volume_condition.iloc[-1])
+    print("Long upper shadow:", long_upper_shadow.iloc[-1])
+    print("Cross star:", cross_star.iloc[-1])
+    print("Price structure condition:", price_structure_condition.iloc[-1])
+    print("Sell signal:", sell_signal.iloc[-1])
+
+    if return_signal:
+        return {
+            "rsi_condition": rsi_condition.fillna(0),
+            "volume_condition": volume_condition.fillna(0),
+            "price_structure_condition": price_structure_condition.fillna(0),
+            "sell_signal": sell_signal,
+        }
