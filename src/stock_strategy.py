@@ -197,7 +197,7 @@ class stock_strategy:
     def realtime_df(self, imputed_close=None):
         df_new = self.ticker.reset_index()
         df_new.columns = df_new.columns.str.lower()
-        df_new['date'] = pd.to_datetime(df_new['date'])
+        df_new['date'] = pd.to_datetime(df_new['date']).dt.tz_localize(None)
         if df_new['date'].iloc[-1].strftime('%Y-%m-%d') == self.df['date'].iloc[-1].strftime('%Y-%m-%d'):
             df_realtime = self.df[['date', 'open', 'close', 'high', 'low', 'volume']]
         else:
@@ -361,7 +361,7 @@ class stock_strategy:
         anchored_vwap_upper_1 = anchored_vwap_series * np.exp(1*anchored_vwap_std)
         anchored_vwap_lower_1 = anchored_vwap_series * np.exp(-1*anchored_vwap_std)
         anchored_vwap_upper_2 = anchored_vwap_series * np.exp(2*anchored_vwap_std)
-        anchored_vwap_lower_2 = anchored_vwap_series * np.exp(-2*anchored_vwap_std)   
+        anchored_vwap_lower_2 = anchored_vwap_series * np.exp(-2*anchored_vwap_std)
         
         # directly plot
         if plot:
@@ -445,14 +445,14 @@ class stock_strategy:
         
         print()
 
-        latest_rsi = float(f'{self.df[self.df['date']==previous_day]['RSI'].item():.2g}')
+        latest_rsi = float(f'{self.df[self.df['date']==previous_day]['RSI'].item():.4g}')
         if latest_rsi > 70:
             print("Latest RSI:", Fore.RED + str(latest_rsi), Style.RESET_ALL)
         elif latest_rsi < 30:
             print("Latest RSI:", Fore.GREEN + str(latest_rsi), Style.RESET_ALL)
         else:
             print("Latest RSI:", latest_rsi, Style.RESET_ALL)
-        latest_rsi_raw = float(f'{self.df[self.df['date']==previous_day]['RSI_raw'].item():.2g}')
+        latest_rsi_raw = float(f'{self.df[self.df['date']==previous_day]['RSI_raw'].item():.4g}')
         if latest_rsi_raw > 70:
             print("Latest RSI, raw", Fore.RED + str(latest_rsi_raw), Style.RESET_ALL)
         elif latest_rsi_raw < 30:
@@ -460,7 +460,7 @@ class stock_strategy:
         else:
             print("Latest RSI, raw:", latest_rsi_raw, Style.RESET_ALL)
 
-        latest_macd = float(f'{self.df[self.df['date']==previous_day]['MACD_diff'].item():.2g}')
+        latest_macd = float(f'{self.df[self.df['date']==previous_day]['MACD_diff'].item():.4g}')
         if latest_macd < 0:
             print("Latest MACD Divergence:", Fore.RED + str(latest_macd), Style.RESET_ALL)
         elif latest_macd > 0:
@@ -581,6 +581,7 @@ class stock_strategy:
             df_plot = self.df
         df_new = self.ticker.reset_index()
         df_new.columns = df_new.columns.str.lower()
+        df_new['date'] = pd.to_datetime(df_new['date']).dt.tz_localize(None)
         df_plot = pd.concat([df_plot, df_new[['date', 'close', 'high', 'low', 'open', 'volume']]], ignore_index=True)
         
         if self.strategy == 'daily':
@@ -636,6 +637,12 @@ class stock_strategy:
             ax1.fill_between(df_plot['date'], df_plot['Upper Band - 50MA'], df_plot['Lower Band - 50MA'], color='gray', alpha=0.3) # Fill the area between the bands
             ax1.set_title('Daily stock price for ' + self.stock_name.upper())
             ax1.legend()
+            ax1.set_ylabel('Price')
+            # Plot daily volume
+            # ax3 = ax1.twinx()
+            # ax3.bar(df_plot['date'], df_plot['volume'], alpha=0.3, color='orange', label='Daily Volume')
+            # ax3.set_ylabel('Volume')
+            # ax3.tick_params(axis='y')
                 
             # Plot MACD and signal line, color bars based on MACD above/below signal line
             ax2.plot(df_plot['date'], df_plot['MACD'], label='MACD', color='red')
@@ -686,6 +693,7 @@ class stock_strategy:
             df_plot = self.df
         df_new = self.ticker.reset_index()
         df_new.columns = df_new.columns.str.lower()
+        df_new['date'] = pd.to_datetime(df_new['date']).dt.tz_localize(None)
         df_plot = pd.concat([df_plot, df_new[['date', 'close', 'high', 'low', 'open', 'volume']]], ignore_index=True)
         ax = plot_candlestick(df_plot, figsize=(32,8))
         print(f"Latest 5D VWAP: {self.vwap_5d.iloc[-1]}")
@@ -761,11 +769,11 @@ class stock_strategy:
         avg_loss = loss.ewm(alpha=1/window, adjust=False).mean()
         rs = avg_gain / avg_loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
-        latest_rsi = float(f'{df_check.tail(1)['RSI'].item():.2g}')
+        latest_rsi = float(f'{df_check.tail(1)['RSI'].item():.4g}')
         self.curr_rsi = latest_rsi
-        latest_rsi_raw = float(f'{df_check.tail(1)['RSI_raw'].item():.2g}')
+        latest_rsi_raw = float(f'{df_check.tail(1)['RSI_raw'].item():.4g}')
         self.curr_rsi_raw = latest_rsi_raw
-        latest_macd = float(f'{(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item()):.2g}')
+        latest_macd = float(f'{(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item()):.4g}')
         self.curr_macd = latest_macd
         if print_result:
             if latest_rsi > 70:
@@ -825,11 +833,11 @@ class stock_strategy:
         rs = avg_gain / avg_loss
         df_check['RSI'] = 100 - (100 / (1 + rs))
 
-        latest_rsi = float(f'{df_check.tail(1)['RSI'].item():.2g}')
+        latest_rsi = float(f'{df_check.tail(1)['RSI'].item():.4g}')
         self.infer_rsi = latest_rsi
-        latest_rsi_raw = float(f'{df_check.tail(1)['RSI_raw'].item():.2g}')
+        latest_rsi_raw = float(f'{df_check.tail(1)['RSI_raw'].item():.4g}')
         self.infer_rsi_raw = latest_rsi_raw
-        latest_macd = float(f'{(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item()):.2g}')
+        latest_macd = float(f'{(df_check.tail(1)['MACD'].item() - df_check.tail(1)['MACD_signal'].item()):.4g}')
         self.infer_macd = latest_macd
         if print_result:
             if latest_rsi > 70:

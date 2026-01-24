@@ -32,12 +32,20 @@ def etf_regression(etf_code,
     Including maximal drawdown
     '''
     if source == "etf":
-        df_etf = ak.fund_etf_hist_em(symbol=etf_code,
-        	                   period="daily", 
-                               start_date=regression_start,
-                               end_date=end,
-                               adjust=adjust)
-        df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+        try:
+            df_etf = ak.fund_etf_hist_em(symbol=etf_code,
+            	                   period="daily", 
+                                   start_date=regression_start,
+                                   end_date=end,
+                                   adjust=adjust)
+            df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+        except:
+            print("EM port not working. Change port to sina; data quality is worse")
+            df_etf = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+            df_etf['date'] = pd.to_datetime(df_etf['date']).dt.strftime('%Y%m%d')
+            df_etf = df_etf[df_etf['date'].between(regression_start, end)]
+            df_etf['date'] = pd.to_datetime(df_etf['date'])
+            
     elif source == "index" and etf_code[0:3].upper() == "CSI":
         df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:].upper(), start_date=regression_start, end_date=end)
         df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
@@ -144,18 +152,25 @@ class etf_strategy:
         print(f"Downloading data for {self.etf_code.upper()} from {start} to {end} using akshare...")
 
         if source == "etf":
-            self.df = ak.fund_etf_hist_em(
-            	symbol=self.etf_code,
-            	start_date=self.start,
-            	end_date=self.end,
-            	period='daily',  # Default to daily,
-            	adjust=self.adjust
-            )
-            # Rename columns to match the yfinance dataframe structure
-            # akshare column names might be in Chinese or different.
-            # Common akshare columns for ETF historical data might include:
-            # '日期' (date), '开盘' (Open), '收盘' (close), '最高' (high), '最低' (low), '成交量' (Volume)
-            self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+            try:
+                self.df = ak.fund_etf_hist_em(
+                	symbol=self.etf_code,
+                	start_date=self.start,
+                	end_date=self.end,
+                	period='daily',  # Default to daily,
+                	adjust=self.adjust
+                )
+                # Rename columns to match the yfinance dataframe structure
+                # akshare column names might be in Chinese or different.
+                # Common akshare columns for ETF historical data might include:
+                # '日期' (date), '开盘' (Open), '收盘' (close), '最高' (high), '最低' (low), '成交量' (Volume)
+                self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+            except:
+                print("EM port not working. Change port to sina; data quality is worse")
+                self.df = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+                self.df['date'] = pd.to_datetime(self.df['date']).dt.strftime('%Y%m%d')
+                self.df = self.df[self.df['date'].between(self.start, self.end)]
+                self.df['date'] = pd.to_datetime(self.df['date'])
         elif source == "index" and etf_code[0:3].upper() == "CSI":
             self.df = ak.stock_zh_index_hist_csindex(
             	symbol=self.etf_code[3:].upper(),
@@ -572,6 +587,12 @@ class etf_strategy:
             ax1.fill_between(df_plot['date'], df_plot['Upper Band - 50MA'], df_plot['lower Band - 50MA'], color='gray', alpha=0.3) # Fill the area between the bands
             ax1.set_title('Daily etf price for ' + self.etf_code.upper(), fontsize=32)
             ax1.legend(fontsize=16)
+            ax1.set_ylabel('Price')
+            # Plot daily volume
+            # ax3 = ax1.twinx()
+            # ax3.bar(df_plot['date'], df_plot['volume'], alpha=0.3, color='orange', label='Daily Volume')
+            # ax3.set_ylabel('Volume')
+            # ax3.tick_params(axis='y')
             
             # Plot MACD and signal line, color bars based on MACD above/below signal line
             ax2.plot(df_plot['date'], df_plot['MACD'], label='MACD', color='red')
