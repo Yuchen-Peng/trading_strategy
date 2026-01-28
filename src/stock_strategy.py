@@ -342,7 +342,7 @@ class stock_strategy:
         high_centers = np.sort(high_centers, axis=0)
         return low_centers, high_centers
 
-    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True):
+    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True, detailed=False):
         # problem: too slow
         anchored_df = self.df[self.df['date'] >= start_date]
         anchored_df.set_index('date', inplace=True)
@@ -362,6 +362,8 @@ class stock_strategy:
         anchored_vwap_lower_1 = anchored_vwap_series * np.exp(-1*anchored_vwap_std)
         anchored_vwap_upper_2 = anchored_vwap_series * np.exp(2*anchored_vwap_std)
         anchored_vwap_lower_2 = anchored_vwap_series * np.exp(-2*anchored_vwap_std)
+        if detailed:
+            print(f'Latest anchored VWAP bounds since {start_date} are {anchored_vwap_lower_2.iloc[-1]}, {anchored_vwap_lower_1.iloc[-1]}, {anchored_vwap_upper_1.iloc[-1]}, {anchored_vwap_upper_2.iloc[-1]}')
         
         # directly plot
         if plot:

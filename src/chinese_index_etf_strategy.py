@@ -40,21 +40,41 @@ def etf_regression(etf_code,
                                    adjust=adjust)
             df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
         except:
-            print("EM port not working. Change port to sina; data quality is worse")
-            df_etf = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
-            df_etf['date'] = pd.to_datetime(df_etf['date']).dt.strftime('%Y%m%d')
-            df_etf = df_etf[df_etf['date'].between(regression_start, end)]
-            df_etf['date'] = pd.to_datetime(df_etf['date'])
+            use_sina = input("EM port not working. Enter Y to change port to sina. Note that data quality is worse")
+            if use_sina.upper() == 'Y':
+                df_etf = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+                df_etf['date'] = pd.to_datetime(df_etf['date']).dt.strftime('%Y%m%d')
+                df_etf = df_etf[df_etf['date'].between(regression_start, end)]
+                df_etf['date'] = pd.to_datetime(df_etf['date'])
+            else:
+                print('Cannot download')
             
     elif source == "index" and etf_code[0:3].upper() == "CSI":
-        df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:].upper(), start_date=regression_start, end_date=end)
-        df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+        try:
+            df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[3:].upper(), start_date=regression_start, end_date=end)
+            df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+        except:
+            print('Cannot download')
     elif source == "index" and etf_code[0:2].upper() == "HK":
         # ak.stock_hk_index_daily_em cannot return volume
-        df_etf = ak.stock_hk_index_daily_sina(symbol=etf_code[2:].upper())
-        df_etf = df_etf[df_etf['date'].between(pd.to_datetime(regression_start).date(), pd.to_datetime(end).date())]
+        try:
+            df_etf = ak.stock_hk_index_daily_sina(symbol=etf_code[2:].upper())
+            df_etf = df_etf[df_etf['date'].between(pd.to_datetime(regression_start).date(), pd.to_datetime(end).date())]
+        except:
+            print('Cannot download')
     elif source == "index" and etf_code[0:2].lower() in ["sh", "sz"]:
-        df_etf = ak.stock_zh_index_daily_em(symbol=etf_code.lower(), start_date=regression_start, end_date=end)
+        try:
+            df_etf = ak.stock_zh_index_daily_em(symbol=etf_code.lower(), start_date=regression_start, end_date=end)
+        except:
+            use_other = input("EM port for SH/SZ index not working. Enter Y to try CSI or CNI index port; make sure to confirm the price")
+            if use_other.upper() == 'Y' and etf_code[0:2].lower() == "sh":
+                df_etf = ak.stock_zh_index_hist_csindex(symbol=etf_code[2:].upper(), start_date=regression_start, end_date=end)
+                df_etf.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+            elif use_other.upper() == 'Y' and etf_code[0:2].lower() == "sz":
+                df_etf = ak.index_hist_cni(symbol=self.etf_code[2:].upper(), start_date=regression_start, end_date=end)
+                df_etf.rename(columns={"日期": 'date', "开盘价": 'open', "收盘价": 'close', "最高价": 'high', "最低价": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+            else:
+                print('Cannot download')
     else:
         print("Index / ETF source not recognized")
         
@@ -166,31 +186,51 @@ class etf_strategy:
                 # '日期' (date), '开盘' (Open), '收盘' (close), '最高' (high), '最低' (low), '成交量' (Volume)
                 self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
             except:
-                print("EM port not working. Change port to sina; data quality is worse")
-                self.df = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
-                self.df['date'] = pd.to_datetime(self.df['date']).dt.strftime('%Y%m%d')
-                self.df = self.df[self.df['date'].between(self.start, self.end)]
-                self.df['date'] = pd.to_datetime(self.df['date'])
+                use_sina = input("EM port not working. Enter Y to change port to sina. Note that data quality is worse")
+                if use_sina.upper() == 'Y':
+                    self.df = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+                    self.df['date'] = pd.to_datetime(self.df['date']).dt.strftime('%Y%m%d')
+                    self.df = self.df[self.df['date'].between(self.start, self.end)]
+                    self.df['date'] = pd.to_datetime(self.df['date'])
+                else:
+                    print('Cannot download')
+
         elif source == "index" and etf_code[0:3].upper() == "CSI":
-            self.df = ak.stock_zh_index_hist_csindex(
-            	symbol=self.etf_code[3:].upper(),
-            	start_date=self.start,
-            	end_date=self.end
-            )
-            self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+            try:
+                self.df = ak.stock_zh_index_hist_csindex(
+                	symbol=self.etf_code[3:].upper(),
+                	start_date=self.start,
+                	end_date=self.end
+                )
+                self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+            except:
+                print('Cannot download')
         elif source == "index" and etf_code[0:2].upper() == "HK":
             # ak.stock_hk_index_daily_em cannot return volume
-            self.df = ak.stock_hk_index_daily_sina(
-                symbol=self.etf_code[2:].upper(),
-            )
-            self.df = self.df[self.df['date'].between(pd.to_datetime(self.start).date(), pd.to_datetime(self.end).date())]
-
+            try:
+                self.df = ak.stock_hk_index_daily_sina(
+                    symbol=self.etf_code[2:].upper(),
+                )
+                self.df = self.df[self.df['date'].between(pd.to_datetime(self.start).date(), pd.to_datetime(self.end).date())]
+            except:
+                print('Cannot download')
         elif source == "index" and etf_code[0:2].lower() in ["sh", "sz"]:
-            self.df = ak.stock_zh_index_daily_em(
-            	symbol=self.etf_code.lower(),
-            	start_date=self.start,
-            	end_date=self.end
-            )
+            try:
+                self.df = ak.stock_zh_index_daily_em(
+                	symbol=self.etf_code.lower(),
+                	start_date=self.start,
+                	end_date=self.end
+                )
+            except:
+                use_other = input("EM port for SH/SZ index not working. Enter Y to try CSI or CNI index port; make sure to confirm the price")
+                if use_other.upper() == 'Y' and etf_code[0:2].lower() == "sh":
+                    self.df = ak.stock_zh_index_hist_csindex(symbol=self.etf_code[2:].upper(), start_date=self.start, end_date=self.end)
+                    self.df.rename(columns={"日期": 'date', "开盘": 'open', "收盘": 'close', "最高": 'high', "最低": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+                elif use_other.upper() == 'Y' and etf_code[0:2].lower() == "sz":
+                    self.df = ak.index_hist_cni(symbol=self.etf_code[2:].upper(), start_date=self.start, end_date=self.end)
+                    self.df.rename(columns={"日期": 'date', "开盘价": 'open', "收盘价": 'close', "最高价": 'high', "最低价": 'low', "成交量": 'volume', "成交额": 'amount'}, inplace=True)
+                else:
+                    print('Cannot download')
         else:
             print("Index / ETF source not recognized")
         self.df['date'] = pd.to_datetime(self.df['date']) # Convert 'date' column to datetime objects
