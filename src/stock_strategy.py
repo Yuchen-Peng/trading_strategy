@@ -342,9 +342,11 @@ class stock_strategy:
         high_centers = np.sort(high_centers, axis=0)
         return low_centers, high_centers
 
-    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True, detailed=False):
-        # problem: too slow
-        anchored_df = self.df[self.df['date'] >= start_date]
+    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True, realtime=False, detailed=False):
+        if realtime:
+            anchored_df = self.realtime_df()[self.realtime_df()['date'] >= start_date]
+        else:
+            anchored_df = self.df[self.df['date'] >= start_date]
         anchored_df.set_index('date', inplace=True)
         # Ensure the DataFrame index is a datetime object for proper comparison
         if not isinstance(anchored_df.index, pd.DatetimeIndex):
