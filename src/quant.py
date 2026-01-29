@@ -20,6 +20,7 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
     Identify buy signal for a stock touching bottom
     share_outstanding: in the unit of MM
     scenario: 'declining' vs 'ranging'
+    长下影缩量（跌不动） or 长柱体放量收绿（大量入场）
     '''
     share_outstanding = share_outstanding*10**6
     df_asset['price_mt_cond1'] = (df_asset['close'].pct_change(5)*100 < -8)
@@ -123,7 +124,7 @@ def peak_sell(df_asset, volume_period=20, return_signal=False):
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         rsi_14 = 100 - (100 / (1 + rs))
-    rsi_condition = (rsi_14>80) & (rsi_14.diff().abs()<2)
+    rsi_condition = (rsi_14>80) & (rsi_14.diff().abs()<2) # what if rsi decrease? should we change this?
     
     volume = df_asset['volume']
     volume_ma = volume.rolling(window=volume_period).mean()
@@ -140,7 +141,7 @@ def peak_sell(df_asset, volume_period=20, return_signal=False):
     cross_star = (body_size < (df_asset['high']- df_asset['low'])*0.1)
     price_structure_condition = long_upper_shadow | cross_star
     
-    sell_signal = rsi_condition.fillna(0) * volume_spike.fillna(0) * long_upper_shadow.fillna(0)
+    sell_signal = rsi_condition.fillna(0) * volume_condition.fillna(0) * long_upper_shadow.fillna(0)
 
     print("RSI flat:", rsi_condition.iloc[-1])
     print("Volume spike:", volume_spike.iloc[-1])
