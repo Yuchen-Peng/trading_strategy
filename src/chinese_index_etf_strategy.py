@@ -430,7 +430,7 @@ class etf_strategy:
         tr = pd.concat([high_low, high_close_prev, low_close_prev], axis=1).max(axis=1)
         # atr = tr.rolling(window=period, min_periods=period).mean()  # SMA version
         atr = tr.ewm(span=period, adjust=False).mean()            # EMA version
-        self.atr_static = atr.iloc[-2]  # latest ATR, not including today's dynamic prices
+        self.atr_static = atr.iloc[-2]  # latest ATR, may include today's dynamic prices depending on the data
         previous_day = self.df[self.df['date']<datetime.now(BEIJING_TZ).strftime('%Y%m%d')]['date'].max()
         last_closing = self.df[self.df['date']==previous_day]['close'].values[0]
         print(f"Last closing price: {last_closing}; ATR: {self.atr_static}")

@@ -384,15 +384,18 @@ class stock_strategy:
             ax.legend()
             plt.show()
 
-    def atr_drawdown_thresholds(self, period: int = 14) -> float:
-        df = self.df.set_index('date').tail(100).sort_index()
+    def atr_drawdown_thresholds(self, period: int = 14, realtime=False) -> float:
+        if realtime:
+            df = self.realtime_df().set_index('date').tail(100).sort_index()
+        else:
+            df = self.df.set_index('date').tail(100).sort_index()
         high_low = df['high'] - df['low']
         high_close_prev = (df['high'] - df['close'].shift()).abs()
         low_close_prev = (df['low'] - df['close'].shift()).abs()
         tr = pd.concat([high_low, high_close_prev, low_close_prev], axis=1).max(axis=1)
         # atr = tr.rolling(window=period, min_periods=period).mean()  # SMA version
         atr = tr.ewm(span=period, adjust=False).mean()            # EMA version
-        self.atr_static = atr.iloc[-1]  # latest ATR, not including today's dynamic prices
+        self.atr_static = atr.iloc[-1]  # latest ATR, not including today's dynamic prices if realtime=False
         last_closing = df['close'].iloc[-1]
         print(f"Last closing price: {last_closing}; ATR: {self.atr_static}")
         p_breakout = float(input('Enter the breakout price:'))
