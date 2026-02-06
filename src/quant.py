@@ -10,10 +10,239 @@ import seaborn as sns
 sns.set(style='darkgrid')
 
 from scipy.optimize import fsolve, curve_fit
+from scipy.stats import norm
 from sklearn.metrics import r2_score
 from math import ceil, floor
 
 from utils import plot_candlestick, exponential_func, get_optimum_clusters
+
+# =================== #
+# 1. Option strategies
+# =================== #
+# 1.1 Gamma flip point
+
+def bs_gamma(S, K, T, r, sigma):
+    """
+    Calculate Gamma for an option given stock price S and strike K
+    Parameters:
+        S: stock price
+        K: option strike
+        T: annualized days to expiration (expiration - current_date) / 365
+        r: risk-free return rate, use 3-month Treasury bill rate
+        sigma: implied volatility (IV)
+    """
+    if T <= 0 or sigma <= 0:
+        return 0.0
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    return norm.pdf(d1) / (S * sigma * np.sqrt(T))
+
+def total_gamma_exposure(S, options_df, r=0.0368):
+    gex = 0.0
+    for _, row in options_df.iterrows():
+        gamma = bs_gamma(
+            S=S,
+            K=row["strike"],
+            T=row["T"],
+            r=r,
+            sigma=row["impliedVolatility"]
+        )
+        exposure = gamma * row["openInterest"] * 100 * S**2
+
+        # assumption: dealer short calls, and long puts
+        if row["type"] == "call":
+            gex += exposure
+        else:
+            gex -= exposure
+    return gex
+
+def load_option_chain(tk, expiration):
+    """
+    Load option chain for a pre-specified Ticker object
+    Parameter:
+        tk: yf.Ticker object
+        expiration: date in %Y-%m-%d format
+    Return:
+        options_df: dataframe
+    """
+    calls, puts = tk.option_chain(expiration).calls, tk.option_chain(expiration).puts
+    now = datetime.today()
+    T = (datetime.strptime(expiration, "%Y-%m-%d") - now).days / 365
+    calls = calls.assign(
+        type="call",
+        T=T
+    )
+    puts = puts.assign(
+        type="put",
+        T=T
+    )
+    options_df = pd.concat([calls, puts], ignore_index=True)
+    options_df = options_df[
+        (options_df["openInterest"] > 0) &
+        (options_df["impliedVolatility"] > 0)
+    ]
+    return options_df
+
+def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_range_pct=0.2):
+    """
+    Find gamma flip point of a stock
+    Parameter:
+        ticker_name: str to get yf.Ticker(ticker_name)
+        use_single_expiration: boolean
+        * if True, default to the 3rd Friday of the month / next month
+        * if False, use multiple expiration dates available in the option chain (try within 31 days but blocked by yfinance)
+        exp_dt: str, YYYY-MM-DD format specific expiration date
+        price_range_pct: find the flip_price within this range
+
+    """
+    tk = yf.Ticker(ticker_name)
+    if use_single_expiration and exp_dt is None:
+        today = datetime.today()
+        current_month_start = datetime(today.year, today.month, 1)
+        next_month_start = datetime(today.year, today.month+1, 1)
+        current_third_friday = datetime(today.year, today.month, 1 + (4 - current_month_start.weekday()) % 7 + 14)
+        next_third_friday = datetime(today.year, today.month+1, 1 + (4 - current_third_friday.weekday()) % 7 + 14)
+        if today < current_third_friday:
+            expirations = [current_third_friday.strftime('%Y-%m-%d')]
+        else:
+            expirations = [next_third_friday.strftime('%Y-%m-%d')]
+    elif use_single_expiration and exp_dt is not None:
+        expirations = [exp_dt]
+    else:
+        # Extracting all expiration dates is disabled by yfinance; using options expiring within 31 day
+        expirations = [exp_dt for exp_dt in tk.options
+                       if datetime.today() < datetime.strptime(exp_dt, '%Y-%m-%d') < datetime.today() + pd.Timedelta(days=31)]
+
+    
+    S0 = tk.history(period="1d")["Close"].iloc[-1]
+    current_gex_value = np.array([total_gamma_exposure(S0, load_option_chain(tk, exp_dt)) for exp_dt in expirations]).sum()
+    prices = np.linspace(
+        S0 * (1 - price_range_pct),
+        S0 * (1 + price_range_pct),
+        200
+    )
+    gex_values = np.array([
+        np.array([total_gamma_exposure(S, load_option_chain(tk, exp_dt)) for exp_dt in expirations]).sum()
+        for S in prices]
+    )
+    sign_change = np.where(np.sign(gex_values[:-1]) != np.sign(gex_values[1:]))[0]
+
+    plt.figure(figsize=(12, 7))
+    gex_vals_b = gex_values / 1e9
+    plt.plot(prices, gex_vals_b, label='Net Gamma Exposure', color='#1f77b4', linewidth=2.5)
+    plt.axhline(0, color='black', linestyle='-', linewidth=1.5, alpha=0.8)
+    plt.fill_between(prices, gex_vals_b, 0, where=(gex_vals_b >= 0), 
+                     color='green', alpha=0.15, label='Positive Gamma (Stabilizing)')
+    plt.fill_between(prices, gex_vals_b, 0, where=(gex_vals_b < 0), 
+                     color='red', alpha=0.15, label='Negative Gamma (Volatile)')
+    plt.axvline(S0, color='grey', linestyle='--', alpha=0.8)
+    plt.text(S0, max(gex_vals_b)*0.9, f' Current: ${S0:.2f}', 
+             color='grey', fontweight='bold', ha='left')
+
+    if len(sign_change) > 0:
+        plt.axvline(prices[sign_change[0]], color='#d62728', linestyle='--', linewidth=2)
+        plt.scatter([prices[sign_change[0]]], [0], color='#d62728', s=100, zorder=5, label='Flip Point')
+        plt.text(prices[sign_change[0]], 0, f'  Flip: ${prices[sign_change[0]]:.2f}', 
+                 color='#d62728', fontweight='bold', va='bottom', ha='left')
+
+    pic_title = f'{ticker_name.upper()} Total Gamma Exposure Profile\n(Assumes: Dealers Long Call / Short Put)'
+    if len(expirations) == 1:
+        pic_title += f'\n(Evaluated using options with expiration date {expirations[0]})'
+    else:
+        pic_title += f'\n(Evaluated using options expiring within 31 days after {datetime.today().strftime('%Y-%m-%d')})'
+    plt.title(pic_title, fontsize=16)
+    plt.xlabel('Stock Price ($)', fontsize=12)
+    plt.ylabel('Total Gamma Exposure ($ Billion / 1% move)', fontsize=12)
+    plt.legend(loc='best')
+    plt.grid(True, linestyle=':', alpha=0.6)
+    
+    plt.tight_layout()
+    plt.show()
+
+    if len(sign_change) == 0:
+        print("No flip point (too far from current price, or gamma being always positive / negative)")
+        print(f"{ticker_name.upper()} GEX minimal at {prices[np.argmin(gex_values)]:.2f}")
+        print(f"{ticker_name.upper()} GEX maximal at {prices[np.argmax(gex_values)]:.2f}")
+        return None, current_gex_value
+
+    flip_price = prices[sign_change[0]]
+    print(f"{ticker_name.upper()} current Price: {S0:.2f}")
+    print(f"{ticker_name.upper()} Gamma Flip Point: {flip_price:.2f}")
+    history_df = tk.history(period='20d')
+    print(f"{ticker_name.upper()} current GEX: {current_gex_value/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% current GEX vs average turnover: {current_gex_value / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
+    print(f"{ticker_name.upper()} GEX minimal at {prices[np.argmin(gex_values)]:.2f}")
+    print(f"{ticker_name.upper()} minimal GEX: {gex_values.min()/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% minimal GEX vs average turnover: {gex_values.min() / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
+    print(f"{ticker_name.upper()} GEX maximal at {prices[np.argmax(gex_values)]:.2f}")
+    print(f"{ticker_name.upper()} maximal GEX: {gex_values.max()/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% maximal GEX vs average turnover: {gex_values.max() / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
+    return flip_price, current_gex_value
+
+# 1.2 Option walls
+
+def get_option_walls(ticker_symbol, target_date):
+    ticker = yf.Ticker(ticker_symbol)
+    history = ticker.history(period='1d')
+    if history.empty: return "Data not found"
+    spot_price = history['Close'].iloc[-1]
+    high_price = history['High'].iloc[-1]
+    low_price = history['Low'].iloc[-1]
+
+    chain = ticker.option_chain(target_date)
+    
+    # --- 1. 定义非对称阈值，排除深度价内 ---
+    # Call: 看现价 -2% 到 +10% (阻力区)
+    call_min, call_max = spot_price * 0.98, spot_price * 1.10
+    # Put: 看现价 -10% 到 +2% (支撑区)
+    put_min, put_max = spot_price * 0.9, spot_price * 1.02
+    
+    calls = chain.calls[(chain.calls['strike'] >= call_min) & (chain.calls['strike'] <= call_max)]
+    puts = chain.puts[(chain.puts['strike'] >= put_min) & (chain.puts['strike'] <= put_max)]
+
+    # Put Wall
+    put_wall = puts.loc[puts['openInterest'].idxmax()]
+    # Call Wall
+    call_wall = calls.loc[calls['openInterest'].idxmax()]
+    
+    # Calculate OI ratio between call and put
+    total_put_oi = puts['openInterest'].sum()
+    total_call_oi = calls['openInterest'].sum()
+    
+    print(f"{ticker_symbol.upper()} Put Wall: ${put_wall['strike']} | OI: {int(put_wall['openInterest'])} | OI vs volume: {int(put_wall['openInterest'])*100 / ticker.history(period='20d')['Volume'].mean():.2%}")
+    print(f"{ticker_symbol.upper()} Call Wall: ${call_wall['strike']} | OI: {int(call_wall['openInterest'])} | OI vs volume: {int(call_wall['openInterest'])*100 / ticker.history(period='20d')['Volume'].mean():.2%}")
+    print(f"{ticker_symbol.upper()} P/C OI Ratio: {total_put_oi / total_call_oi:.2%}")
+    
+    # --- 2. 绘图布局 ---
+    fig, (ax2, ax1) = plt.subplots(2, 1, figsize=(12, 10), sharex=False)
+    fig.suptitle(f"{ticker_symbol.upper()} Strategic OI Distribution ({target_date})\nSpot: {spot_price:.2f}", fontsize=14)
+
+    # --- 3. Call Subplot (Resistance) ---
+    ax1.bar(calls['strike'], calls['openInterest'], color='seagreen', alpha=0.7)
+    ax1.set_ylabel("Call Open Interest")
+    ax1.axvline(spot_price, color='blue', linestyle='--', alpha=0.5, label=f'Close Price on {datetime.today().strftime('%Y-%m-%d')}')
+    ax1.legend()
+
+    # 标注 OTM/轻微 ITM 中的 Top 5 墙
+    top_calls = calls.nlargest(5, 'openInterest')
+    for _, row in top_calls.iterrows():
+        ax1.text(row['strike'], row['openInterest'], f"{int(row['strike'])}", 
+                 ha='center', va='bottom', fontweight='bold', color='darkgreen')
+
+    # --- 4. Put Subplot (Support) ---
+    ax2.bar(puts['strike'], puts['openInterest'], color='indianred', alpha=0.7)
+    ax2.set_ylabel("Put Open Interest")
+    ax2.axvline(spot_price, color='blue', linestyle='--', alpha=0.5, label=f'Close Price on {datetime.today().strftime('%Y-%m-%d')}')
+    
+    # 标注 OTM/轻微 ITM 中的 Top 5 墙
+    top_puts = puts.nlargest(5, 'openInterest')
+    for _, row in top_puts.iterrows():
+        ax2.text(row['strike'], row['openInterest'], f"{int(row['strike'])}", 
+                 ha='center', va='bottom', fontweight='bold', color='darkred')
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+# =================== #
+# 2. Bottom strategy
+# =================== #
 
 def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_period=5, return_signal=False):
     '''
@@ -111,6 +340,10 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
     
     if return_signal:
         return df_asset
+        
+# =================== #
+# 3. Peak strategy
+# =================== #
 
 def peak_sell(df_asset, volume_period=20, return_signal=False):
     '''

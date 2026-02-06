@@ -42,7 +42,10 @@ def etf_regression(etf_code,
         except:
             use_sina = input("EM port not working. Enter Y to change port to sina. Note that data quality is worse")
             if use_sina.upper() == 'Y':
-                df_etf = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+                try:
+                    df_etf = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+                except:
+                    df_etf = ak.fund_etf_hist_sina(symbol=f"sz{etf_code}")
                 df_etf['date'] = pd.to_datetime(df_etf['date']).dt.strftime('%Y%m%d')
                 df_etf = df_etf[df_etf['date'].between(regression_start, end)]
                 df_etf['date'] = pd.to_datetime(df_etf['date'])
@@ -188,7 +191,10 @@ class etf_strategy:
             except:
                 use_sina = input("EM port not working. Enter Y to change port to sina. Note that data quality is worse")
                 if use_sina.upper() == 'Y':
-                    self.df = ak.fund_etf_hist_sina(symbol=f"sh{etf_code}")
+                    try:
+                        self.df = ak.fund_etf_hist_sina(symbol=f"sh{self.etf_code}")
+                    except:
+                        self.df = ak.fund_etf_hist_sina(symbol=f"sz{self.etf_code}")
                     self.df['date'] = pd.to_datetime(self.df['date']).dt.strftime('%Y%m%d')
                     self.df = self.df[self.df['date'].between(self.start, self.end)]
                     self.df['date'] = pd.to_datetime(self.df['date'])
