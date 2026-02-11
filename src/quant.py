@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+import pytz
 from dateutil.relativedelta import relativedelta
 import yfinance as yf
 import math
@@ -82,7 +83,7 @@ def load_option_chain(tk, expiration):
     ]
     return options_df
 
-def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_range_pct=0.2):
+def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_imputed=None, price_range_pct=0.2):
     """
     Find gamma flip point of a stock
     Parameter:
@@ -91,6 +92,7 @@ def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_
         * if True, default to the 3rd Friday of the month / next month
         * if False, use multiple expiration dates available in the option chain (try within 31 days but blocked by yfinance)
         exp_dt: str, YYYY-MM-DD format specific expiration date
+        price_imputed: in case a different than close price needs to be manually imputed
         price_range_pct: find the flip_price within this range
 
     """
@@ -113,7 +115,10 @@ def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_
                        if datetime.today() < datetime.strptime(exp_dt, '%Y-%m-%d') < datetime.today() + pd.Timedelta(days=31)]
 
     
-    S0 = tk.history(period="1d")["Close"].iloc[-1]
+    if price_imputed is None:
+        S0 = tk.history(period="1d")["Close"].iloc[-1]
+    else:
+        S0 = price_imputed
     current_gex_value = np.array([total_gamma_exposure(S0, load_option_chain(tk, exp_dt)) for exp_dt in expirations]).sum()
     prices = np.linspace(
         S0 * (1 - price_range_pct),
@@ -144,7 +149,7 @@ def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_
         plt.text(prices[sign_change[0]], 0, f'  Flip: ${prices[sign_change[0]]:.2f}', 
                  color='#d62728', fontweight='bold', va='bottom', ha='left')
 
-    pic_title = f'{ticker_name.upper()} Total Gamma Exposure Profile\n(Assumes: Dealers Long Call / Short Put)'
+    pic_title = f'{ticker_name.upper()} Total Gamma Exposure Profile\n(Assumes: Market Makers Long Call / Short Put)'
     if len(expirations) == 1:
         pic_title += f'\n(Evaluated using options with expiration date {expirations[0]})'
     else:
@@ -157,17 +162,21 @@ def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_
     
     plt.tight_layout()
     plt.show()
+    
+    history_df = tk.history(period='20d')
 
     if len(sign_change) == 0:
         print("No flip point (too far from current price, or gamma being always positive / negative)")
+        print(f"{ticker_name.upper()} current GEX: {current_gex_value/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% current GEX vs average turnover: {current_gex_value / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
         print(f"{ticker_name.upper()} GEX minimal at {prices[np.argmin(gex_values)]:.2f}")
+        print(f"{ticker_name.upper()} minimal GEX: {gex_values.min()/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% minimal GEX vs average turnover: {gex_values.min() / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
         print(f"{ticker_name.upper()} GEX maximal at {prices[np.argmax(gex_values)]:.2f}")
+        print(f"{ticker_name.upper()} maximal GEX: {gex_values.max()/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% maximal GEX vs average turnover: {gex_values.max() / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
         return None, current_gex_value
 
     flip_price = prices[sign_change[0]]
     print(f"{ticker_name.upper()} current Price: {S0:.2f}")
-    print(f"{ticker_name.upper()} Gamma Flip Point: {flip_price:.2f}")
-    history_df = tk.history(period='20d')
+    print(f"{ticker_name.upper()} Gamma Flip Point: {flip_price:.2f}")    
     print(f"{ticker_name.upper()} current GEX: {current_gex_value/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% current GEX vs average turnover: {current_gex_value / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
     print(f"{ticker_name.upper()} GEX minimal at {prices[np.argmin(gex_values)]:.2f}")
     print(f"{ticker_name.upper()} minimal GEX: {gex_values.min()/10**9:.2f}B; average turnover: {(history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean()/10**9:.2f}B; 1% minimal GEX vs average turnover: {gex_values.min() / 100 / (history_df['Volume']*(history_df['High']+history_df['Low']+history_df['Close'])/3).mean():.2%}")
@@ -244,20 +253,38 @@ def get_option_walls(ticker_symbol, target_date):
 # 2. Bottom strategy
 # =================== #
 
-def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_period=5, return_signal=False):
+def bottom_buy(stock_name, scenario='declining', volume_period=5, return_signal=False):
     '''
     Identify buy signal for a stock touching bottom
-    share_outstanding: in the unit of MM
+    if current time >= 3:30pm est, include today's data; otherwise just use yesterday's data
     scenario: 'declining' vs 'ranging'
-    长下影缩量（跌不动） or 长柱体放量收绿（大量入场）
+    长下影缩量（跌不动） or 长柱体放量收绿（大量入场）and 短上影线（deepseek推荐）
     '''
-    share_outstanding = share_outstanding*10**6
+    df_asset = yf.download(stock_name.upper(),
+                                  start=(datetime.today() - relativedelta(years=3)).strftime('%Y-%m-%d'),
+                                  end=datetime.today().strftime('%Y-%m-%d'),
+                                  prepost=True,
+                                  auto_adjust=True).droplevel(level='Ticker', axis=1)
+    df_asset = df_asset.reset_index()
+    df_asset.columns = df_asset.columns.str.lower()
+    ticker = yf.Ticker(stock_name.upper())
+    if datetime.now(pytz.timezone('US/Eastern')).time() > time(15, 30):
+        df_new = ticker.history(period='1d').reset_index()
+        df_new.columns = df_new.columns.str.lower()
+        df_new['date'] = pd.to_datetime(df_new['date']).dt.tz_localize(None)
+        df_asset = pd.concat(
+                [df_asset[['date', 'open', 'close', 'high', 'low', 'volume']],
+                 df_new[['date', 'open', 'close', 'high', 'low', 'volume']]]
+            ).reset_index(drop=True)
+    share_outstanding = ticker.info.get('floatShares', ticker.info.get('sharesOutstanding'))
+
     df_asset['price_mt_cond1'] = (df_asset['close'].pct_change(5)*100 < -8)
     df_asset['price_mt_cond2'] = (df_asset['close'].pct_change(1)*100 > -3)
     df_asset['price_mt_cond3'] = ((df_asset[['open','close']].min(axis=1) - df_asset['low']) > 1.5 * abs(df_asset['open'] - df_asset['close']))
+    df_asset['price_mt_cond4'] = ((df_asset['high'] - df_asset[['open','close']].max(axis=1)) < 0.3 * abs(df_asset['open'] - df_asset['close']))
     
-    df_asset['vol_cond1'] = (df_asset['volume'] / df_asset['volume'].rolling(volume_period).mean() < 0.6)
-    df_asset['vol_cond2'] = (df_asset['volume'].shift(1) / df_asset['volume'].rolling(volume_period).mean().shift(1) < 0.6)
+    df_asset['vol_cond1'] = (df_asset['volume'] / df_asset['volume'].rolling(volume_period).mean() < 0.85) # 0.6 too strict! try 0.85
+    df_asset['vol_cond2'] = (df_asset['volume'].shift(1) / df_asset['volume'].rolling(volume_period).mean().shift(1) < 0.85) # this often not meet
     df_asset['vol_cond3'] = (df_asset['volume'] / share_outstanding < 0.03)
     
     delta = df_asset['close'].diff()
@@ -283,6 +310,7 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
     df_asset['price_mt_cond1_2d'] = df_asset['price_mt_cond1'].rolling(2).max()
     df_asset['price_mt_cond2_2d'] = df_asset['price_mt_cond2'].rolling(2).max()
     df_asset['price_mt_cond3_2d'] = df_asset['price_mt_cond3'].rolling(2).max()
+    df_asset['price_mt_cond4_2d'] = df_asset['price_mt_cond4'].rolling(2).max()
     df_asset['vol_cond1_2d'] = df_asset['vol_cond1'].rolling(2).max()
     df_asset['vol_cond2_2d'] = df_asset['vol_cond2'].rolling(2).max()
     df_asset['vol_cond3_2d'] = df_asset['vol_cond3'].rolling(2).max()
@@ -305,7 +333,8 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
             # df_asset['price_mt_cond1_2d'].fillna(0) *
             df_asset['price_mt_cond2_2d'].fillna(0) *
             df_asset['price_mt_cond3_2d'].fillna(0) *
-            # df_asset['df_asset['vol_cond1_2d'].fillna(0) *
+            df_asset['price_mt_cond4_2d'].fillna(0) *
+            # df_asset['vol_cond1_2d'].fillna(0) *
             # df_asset['vol_cond2_2d'].fillna(0) *
             # df_asset['vol_cond3_2d'].fillna(0) *
             # df_asset['tech_cond1_2d'].fillna(0) *
@@ -316,7 +345,8 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
     else:
         print("Price drop in 5days > 8%:", df_asset['price_mt_cond1_2d'].iloc[-1])
         print("Price drop today < 3%:", df_asset['price_mt_cond2_2d'].iloc[-1])
-        print("Long longer shadow:", df_asset['price_mt_cond3_2d'].iloc[-1])
+        print("Long lower shadow:", df_asset['price_mt_cond3_2d'].iloc[-1])
+        print("Short upper shadow:", df_asset['price_mt_cond4_2d'].iloc[-1])
         print("Volume contraction:", df_asset['vol_cond1_2d'].iloc[-1])
         print("Volume contraction for two days:", df_asset['vol_cond2_2d'].iloc[-1])
         print("Low turnover rate:", df_asset['vol_cond3_2d'].iloc[-1])
@@ -327,6 +357,7 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
             df_asset['price_mt_cond1_2d'].fillna(0) *
             df_asset['price_mt_cond2_2d'].fillna(0) *
             df_asset['price_mt_cond3_2d'].fillna(0) *
+            df_asset['price_mt_cond4_2d'].fillna(0) *
             df_asset['vol_cond1_2d'].fillna(0) *
             df_asset['vol_cond2_2d'].fillna(0) *
             df_asset['vol_cond3_2d'].fillna(0) *
@@ -345,10 +376,27 @@ def bottom_buy(df_asset, share_outstanding=1, scenario='declining', volume_perio
 # 3. Peak strategy
 # =================== #
 
-def peak_sell(df_asset, volume_period=20, return_signal=False):
+def peak_sell(stock_name, volume_period=20, return_signal=False):
     '''
     Identify sell signal for a stock touching peak in an uptrend
+    if current time >= 3:30pm est, include today's data; otherwise just use yesterday's data
     '''
+    df_asset = yf.download(stock_name.upper(),
+                                  start=(datetime.today() - relativedelta(years=3)).strftime('%Y-%m-%d'),
+                                  end=datetime.today().strftime('%Y-%m-%d'),
+                                  prepost=True,
+                                  auto_adjust=True).droplevel(level='Ticker', axis=1)
+    df_asset = df_asset.reset_index()
+    df_asset.columns = df_asset.columns.str.lower()
+    ticker = yf.Ticker(stock_name.upper())
+    if datetime.now(pytz.timezone('US/Eastern')).time() > time(15, 30):
+        df_new = ticker.history(period='1d').reset_index()
+        df_new.columns = df_new.columns.str.lower()
+        df_new['date'] = pd.to_datetime(df_new['date']).dt.tz_localize(None)
+        df_asset = pd.concat(
+                [df_asset[['date', 'open', 'close', 'high', 'low', 'volume']],
+                 df_new[['date', 'open', 'close', 'high', 'low', 'volume']]]
+            ).reset_index(drop=True)
     if 'RSI_raw' in df_asset.columns:
         rsi_14 = df_asset['RSI_raw']
     else:
