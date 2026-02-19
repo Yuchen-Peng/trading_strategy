@@ -207,6 +207,17 @@ class stock_strategy:
                 [self.df[['date', 'open', 'close', 'high', 'low', 'volume']],
                  df_new[['date', 'open', 'close', 'high', 'low', 'volume']]]
             ).reset_index(drop=True)
+        daily_ema_12 = df_realtime['close'].ewm(span=12, adjust=False).mean()
+        daily_ema_26 = df_realtime['close'].ewm(span=26, adjust=False).mean()
+        macd = daily_ema_12 - daily_ema_26
+        macd_signal = macd.ewm(span=9, adjust=False).mean()
+        df_realtime['MACD_diff'] = macd - macd_signal
+        delta = df_realtime['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df_realtime['RSI_raw'] = 100 - (100 / (1 + rs))
+
         return df_realtime
         
     def calculate_ema(self):

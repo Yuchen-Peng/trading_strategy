@@ -219,7 +219,7 @@ def get_option_walls(ticker_symbol, target_date):
     print(f"{ticker_symbol.upper()} P/C OI Ratio: {total_put_oi / total_call_oi:.2%}")
     
     # --- 2. 绘图布局 ---
-    fig, (ax2, ax1) = plt.subplots(2, 1, figsize=(12, 10), sharex=False)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=False)
     fig.suptitle(f"{ticker_symbol.upper()} Strategic OI Distribution ({target_date})\nSpot: {spot_price:.2f}", fontsize=14)
 
     # --- 3. Call Subplot (Resistance) ---
@@ -277,6 +277,8 @@ def bottom_buy(stock_name, scenario='declining', volume_period=5, return_signal=
                  df_new[['date', 'open', 'close', 'high', 'low', 'volume']]]
             ).reset_index(drop=True)
     share_outstanding = ticker.info.get('floatShares', ticker.info.get('sharesOutstanding'))
+    if share_outstanding is None:
+        share_outstanding = int(input("Please enter the outstanding share manually:"))
 
     df_asset['price_mt_cond1'] = (df_asset['close'].pct_change(5)*100 < -8)
     df_asset['price_mt_cond2'] = (df_asset['close'].pct_change(1)*100 > -3)
