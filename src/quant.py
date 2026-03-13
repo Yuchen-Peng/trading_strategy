@@ -102,8 +102,8 @@ def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_
         current_month_start = datetime(today.year, today.month, 1)
         next_month_start = datetime(today.year, today.month+1, 1)
         current_third_friday = datetime(today.year, today.month, 1 + (4 - current_month_start.weekday()) % 7 + 14)
-        next_third_friday = datetime(today.year, today.month+1, 1 + (4 - current_third_friday.weekday()) % 7 + 14)
-        if today < current_third_friday:
+        next_third_friday = datetime(today.year, today.month+1, 1 + (4 - next_month_start.weekday()) % 7 + 14)
+        if today <= current_third_friday:
             expirations = [current_third_friday.strftime('%Y-%m-%d')]
         else:
             expirations = [next_third_friday.strftime('%Y-%m-%d')]

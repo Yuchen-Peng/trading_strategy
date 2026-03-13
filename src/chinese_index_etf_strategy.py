@@ -467,6 +467,8 @@ class etf_strategy:
             print('* Current etf price:', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
         elif self.strategy == 'longterm':
             print('* Current etf price:', round(new_price,2))
+        if new_price < self.df[self.df['date']>=previous_day - relativedelta(years=3)]['close'].min():
+            print(Style.BRIGHT + Fore.RED +  "WARNING!! Current price breaks 3yr low")
         print('* Recent high:', round(df_plot['high'].max(),2))
         print('* Current etf price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
         print("Latest 5 Day MA:", round(self.df[self.df['date']==previous_day]['5 Day MA'].item(), 2))

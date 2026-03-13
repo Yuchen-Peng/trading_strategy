@@ -18,7 +18,7 @@ from utils import plot_candlestick, exponential_func, get_optimum_clusters
 
 def stock_regression(stock_name,
                      regression_start='2010-01-01',
-                     end=datetime.today(),
+                     end=datetime.today().strftime('%Y-%m-%d'),
                      detailed=False,
                     ):
     '''
@@ -418,7 +418,7 @@ class stock_strategy:
         '''
         previous_day = self.df[self.df['date']<datetime.today().strftime('%Y-%m-%d')]['date'].max()
         # excluding initial 6m to get stable low / high; maybe we don't need this
-        if self.df[self.df['date'] >= self.df['date'].min() + relativedelta(years=1)].shape[0] > 0:
+        if self.df[self.df['date'] >= datetime.today() - relativedelta(years=3)].shape[0] > 0:
             df_plot = self.df[self.df['date'] >= self.df['date'].min() + relativedelta(months=6)]
         else:
             df_plot = self.df
@@ -437,6 +437,8 @@ class stock_strategy:
             print('* Current stock price:', round(new_price,2), '~ up', ceil(resistance*100)/100.0, ', down', floor(support*100)/100)
         elif self.strategy == 'longterm':
             print('* Current stock price:', round(new_price,2))
+        if new_price < self.df[self.df['date']>=datetime.today() - relativedelta(years=3)]['close'].min():
+            print(Style.BRIGHT + Fore.RED +  "WARNING!! Current price breaks 3yr low")
         print('* Recent high:', round(df_plot['high'].max(),2))
         print('* Current stock price is at ' + str(100*round(new_price/df_plot['high'].max(),4)) + '% of recent high')
         print("Latest 5 Day MA:", round(self.df[self.df['date']==previous_day]['5 Day MA'].item(), 2))
