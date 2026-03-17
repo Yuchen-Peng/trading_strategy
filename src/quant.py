@@ -197,10 +197,10 @@ def get_option_walls(ticker_symbol, target_date):
     chain = ticker.option_chain(target_date)
     
     # --- 1. 定义非对称阈值，排除深度价内 ---
-    # Call: 看现价 -2% 到 +10% (阻力区)
-    call_min, call_max = spot_price * 0.98, spot_price * 1.10
-    # Put: 看现价 -10% 到 +2% (支撑区)
-    put_min, put_max = spot_price * 0.9, spot_price * 1.02
+    # Call: 看现价 -2.5% 到 +10% (阻力区)
+    call_min, call_max = spot_price * 0.975, spot_price * 1.10
+    # Put: 看现价 -10% 到 +2.5% (支撑区)
+    put_min, put_max = spot_price * 0.9, spot_price * 1.025
     
     calls = chain.calls[(chain.calls['strike'] >= call_min) & (chain.calls['strike'] <= call_max)]
     puts = chain.puts[(chain.puts['strike'] >= put_min) & (chain.puts['strike'] <= put_max)]
