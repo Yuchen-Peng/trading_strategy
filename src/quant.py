@@ -195,7 +195,11 @@ def get_option_walls(ticker_symbol, target_date):
     low_price = history['Low'].iloc[-1]
 
     chain = ticker.option_chain(target_date)
-    
+    print(f"Sell liquidity on {target_date}:", (chain.calls[chain.calls['strike']<spot_price]['openInterest']*chain.calls[chain.calls['strike']<spot_price]['strike']).sum()*100)
+    print(f"Buy liquidity on {target_date}:", (chain.puts[chain.puts['strike']>spot_price]['openInterest']*chain.puts[chain.puts['strike']>spot_price]['strike']).sum()*100)
+    print(f"Net liquidity on {target_date} (positive is buy, negative is sell):",
+     (chain.puts[chain.puts['strike']>spot_price]['openInterest']*chain.puts[chain.puts['strike']>spot_price]['strike']).sum()*100 - (chain.calls[chain.calls['strike']<spot_price]['openInterest']*chain.calls[chain.calls['strike']<spot_price]['strike']).sum()*100)
+
     # --- 1. 定义非对称阈值，排除深度价内 ---
     # Call: 看现价 -2.5% 到 +10% (阻力区)
     call_min, call_max = spot_price * 0.975, spot_price * 1.10
