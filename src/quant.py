@@ -102,7 +102,13 @@ def find_gamma_flip(ticker_name, use_single_expiration=True, exp_dt=None, price_
         current_month_start = datetime(today.year, today.month, 1)
         next_month_start = datetime(today.year, today.month+1, 1)
         current_third_friday = datetime(today.year, today.month, 1 + (4 - current_month_start.weekday()) % 7 + 14)
+        if current_third_friday.month == 6 and current_third_friday.day == 19:
+            # skip juneteenth
+            current_third_friday = datetime(today.year, today.month, 18)
         next_third_friday = datetime(today.year, today.month+1, 1 + (4 - next_month_start.weekday()) % 7 + 14)
+        if next_third_friday.month == 6 and next_third_friday.day == 19:
+            # skip juneteenth
+            next_third_friday = datetime(today.year, today.month+1, 18)
         if today <= current_third_friday:
             expirations = [current_third_friday.strftime('%Y-%m-%d')]
         else:
@@ -199,6 +205,10 @@ def get_option_walls(ticker_symbol, target_date):
     print(f"Buy liquidity on {target_date}:", (chain.puts[chain.puts['strike']>spot_price]['openInterest']*chain.puts[chain.puts['strike']>spot_price]['strike']).sum()*100)
     print(f"Net liquidity on {target_date} (positive is buy, negative is sell):",
      (chain.puts[chain.puts['strike']>spot_price]['openInterest']*chain.puts[chain.puts['strike']>spot_price]['strike']).sum()*100 - (chain.calls[chain.calls['strike']<spot_price]['openInterest']*chain.calls[chain.calls['strike']<spot_price]['strike']).sum()*100)
+    print(f"Sell liquidity on {target_date}, within 10% down:", (chain.calls[(chain.calls['strike']<spot_price) & (chain.calls['strike']>=0.9*spot_price)]['openInterest']*chain.calls[(chain.calls['strike']<spot_price) & (chain.calls['strike']>=0.9*spot_price)]['strike']).sum()*100)
+    print(f"Buy liquidity on {target_date}, within 10% up:", (chain.puts[(chain.puts['strike']>spot_price) & (chain.puts['strike']<=1.1*spot_price)]['openInterest']*chain.puts[(chain.puts['strike']>spot_price) & (chain.puts['strike']<=1.1*spot_price)]['strike']).sum()*100)
+    print(f"Net liquidity on {target_date} within 10% (positive is buy, negative is sell):",
+     (chain.puts[(chain.puts['strike']>spot_price) & (chain.puts['strike']<=1.1*spot_price)]['openInterest']*chain.puts[(chain.puts['strike']>spot_price) & (chain.puts['strike']<=1.1*spot_price)]['strike']).sum()*100 - (chain.calls[(chain.calls['strike']<spot_price) & (chain.calls['strike']>=0.9*spot_price)]['openInterest']*chain.calls[(chain.calls['strike']<spot_price) & (chain.calls['strike']>=0.9*spot_price)]['strike']).sum()*100)
 
     # --- 1. 定义非对称阈值，排除深度价内 ---
     # Call: 看现价 -2.5% 到 +10% (阻力区)
