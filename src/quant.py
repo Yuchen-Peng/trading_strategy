@@ -278,9 +278,9 @@ def bottom_buy(stock_name, scenario='declining', volume_period=5, return_signal=
                                   start=(datetime.today() - relativedelta(years=3)).strftime('%Y-%m-%d'),
                                   end=datetime.today().strftime('%Y-%m-%d'),
                                   prepost=True,
-                                  auto_adjust=True).droplevel(level='Ticker', axis=1)
-    df_asset = df_asset.reset_index()
+                                  auto_adjust=True).droplevel(level='Ticker', axis=1).reset_index()
     df_asset.columns = df_asset.columns.str.lower()
+    df_asset.rename(columns={"index": "date"}, inplace=True)
     ticker = yf.Ticker(stock_name.upper())
     if datetime.now(pytz.timezone('US/Eastern')).time() > time(15, 30):
         df_new = ticker.history(period='1d').reset_index()
@@ -401,9 +401,9 @@ def peak_sell(stock_name, volume_period=20, return_signal=False):
                                   start=(datetime.today() - relativedelta(years=3)).strftime('%Y-%m-%d'),
                                   end=datetime.today().strftime('%Y-%m-%d'),
                                   prepost=True,
-                                  auto_adjust=True).droplevel(level='Ticker', axis=1)
-    df_asset = df_asset.reset_index()
+                                  auto_adjust=True).droplevel(level='Ticker', axis=1).reset_index()
     df_asset.columns = df_asset.columns.str.lower()
+    df_asset.rename(columns={"index": "date"}, inplace=True)
     ticker = yf.Ticker(stock_name.upper())
     if datetime.now(pytz.timezone('US/Eastern')).time() > time(15, 30):
         df_new = ticker.history(period='1d').reset_index()

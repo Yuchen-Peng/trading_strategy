@@ -43,6 +43,7 @@ def stock_regression(stock_name,
     trough_date = max_drawdown_row.name
     
     df_stock = df_stock.reset_index()
+    df_stock.rename(columns={"Index": "Date"}, inplace=True)
     df_stock['log_price'] = np.log(df_stock['Close'])
 
     df_reg = df_stock
@@ -111,13 +112,13 @@ def stock_correlation(
     For two corrlated stocks, if one has very short history, we can use this to fit its historical price 
     Return: dataframe of the second stock_name
     '''
-    df = yf.download(stock_name1.upper(), start=start, end=end, prepost=True, auto_adjust=True).droplevel(level='Ticker', axis=1)
-    df = df.reset_index()
+    df = yf.download(stock_name1.upper(), start=start, end=end, prepost=True, auto_adjust=True).droplevel(level='Ticker', axis=1).reset_index()
     df.columns = df.columns.str.lower()
+    df.rename(columns={"index": "date"}, inplace=True)
 
-    df_2 = yf.download(stock_name2.upper(), start=start, end=end, prepost=True, auto_adjust=True).droplevel(level='Ticker', axis=1)
-    df_2 = df_2.reset_index()
+    df_2 = yf.download(stock_name2.upper(), start=start, end=end, prepost=True, auto_adjust=True).droplevel(level='Ticker', axis=1).reset_index()
     df_2.columns = df_2.columns.str.lower()
+    df_2.rename(columns={"index": "date"}, inplace=True)
 
     print(datetime.today().strftime('%Y-%m-%d'))
 
@@ -181,9 +182,9 @@ class stock_strategy:
                                   start=start,
                                   end=end,
                                   prepost=True,
-                                  auto_adjust=True).droplevel(level='Ticker', axis=1)
-            self.df = self.df.reset_index()
+                                  auto_adjust=True).droplevel(level='Ticker', axis=1).reset_index()
             self.df.columns = self.df.columns.str.lower()
+            self.df.rename(columns={"index": "date"}, inplace=True)
         self.ticker = yf.Ticker(self.stock_name.upper()).history(period='1d')
         self.calculate_ema()
         self.create_bb()
@@ -499,16 +500,8 @@ class stock_strategy:
         '''
         Solve for the break point solution price for breaking the current MA/BB
         '''
-        # df = yf.download(self.stock_name.upper(),
-        #                  start=(datetime.today() - relativedelta(days=300)).strftime('%Y-%m-%d'),
-        #                  end=datetime.today().strftime('%Y-%m-%d'),
-        #                  prepost=True,
-        #                  auto_adjust=True,
-        #                  ).droplevel(level='Ticker', axis=1)
-        # df = df.reset_index()
-        # df.columns = df.columns.str.lower()
+
         df = self.df.tail(300)
-        # df = df[['close']]
         
         # Define the expression whose roots we want to find
         # fsolve is not satisfying; provide analytical solution
