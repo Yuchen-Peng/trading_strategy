@@ -43,7 +43,7 @@ def stock_regression(stock_name,
     trough_date = max_drawdown_row.name
     
     df_stock = df_stock.reset_index()
-    df_stock.rename(columns={"Index": "Date"}, inplace=True)
+    df_stock.rename(columns={"index": "Date"}, inplace=True)
     df_stock['log_price'] = np.log(df_stock['Close'])
 
     df_reg = df_stock
