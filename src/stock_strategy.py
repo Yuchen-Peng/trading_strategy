@@ -255,21 +255,40 @@ class stock_strategy:
         self.weekly_ma10 = self.weekly.rolling(10).mean()
         self.weekly_ma30 = self.weekly.rolling(30).mean()
         self.weekly_ma40 = self.weekly.rolling(40).mean()
+        self.weekly_ma52 = self.weekly.rolling(52).mean()
+        self.weekly_ma156 = self.weekly.rolling(156).mean()
 
         # Weekly Bollinger Bands (20-week)
         self.weekly_ma20 = self.weekly.rolling(20).mean()
         self.weekly_std20 = self.weekly.rolling(20).std()
         self.weekly_bb_upper = self.weekly_ma20 + 2 * self.weekly_std20
         self.weekly_bb_lower = self.weekly_ma20 - 2 * self.weekly_std20
+        
+        # Weekly RSI
+        delta = self.weekly.diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
+        rs = avg_gain / avg_loss
+        self.weekly_rsi = 100 - (100 / (1 + rs))
+        
+        # Weekly MACD
+        ema_12 = self.weekly.ewm(span=12, adjust=False).mean()
+        ema_26 = self.weekly.ewm(span=26, adjust=False).mean()
+        self.weekly_macd = ema_12 - ema_26
+        self.weekly_macd_signal = self.weekly_macd.ewm(span=9, adjust=False).mean()
+        self.weekly_macd_diff = self.weekly_macd - self.weekly_macd_signal
 
         # Calculate weekly summary, so candlestick plot can be generated at weekly level
-        self.weekly_summary = (self.df[['date', 'open', 'high', 'low', 'close']]
+        self.weekly_summary = (self.df[['date', 'open', 'high', 'low', 'close', 'volume']]
                                .set_index('date').resample('W-FRI')
                                .agg({
                                    'open': 'first',
                                    'high': 'max',
                                    'low': 'min',
-                                   'close': 'last'
+                                   'close': 'last',
+                                   'volume': 'sum'
                                    })
                               )
 
@@ -461,7 +480,8 @@ class stock_strategy:
         print("Latest 20 Week MA:", round(self.weekly_ma20.iloc[-1], 2))
         print("Latest 30 Week MA:", round(self.weekly_ma30.iloc[-1], 2))
         print("Latest 40 Week MA:", round(self.weekly_ma40.iloc[-1], 2))
-
+        print("Latest 1yr MA:", round(self.weekly_ma52.iloc[-1], 2))
+        print("Latest 3yr MA:", round(self.weekly_ma156.iloc[-1], 2))
         print("Latest Lower Weekly Bollinger Band, 20MA:", round(self.weekly_bb_lower.iloc[-1], 2))
         print("Latest Higher Weekly Bollinger Band, 20MA:", round(self.weekly_bb_upper.iloc[-1], 2))
         
@@ -489,7 +509,23 @@ class stock_strategy:
             print("Latest MACD Divergence:", Fore.GREEN + str(latest_macd), Style.RESET_ALL)
         else:
             print("Latest MACD Divergence:", Fore.BLACK + str(latest_macd), Style.RESET_ALL)
+ 
+        latest_rsi_weekly = float(f'{self.weekly_rsi.iloc[-1]:.4g}')
+        if latest_rsi_weekly > 70:
+            print("Latest RSI, weekly", Fore.RED + str(latest_rsi_weekly), Style.RESET_ALL)
+        elif latest_rsi_weekly < 30:
+            print("Latest RSI, weekly:", Fore.GREEN + str(latest_rsi_weekly), Style.RESET_ALL)
+        else:
+            print("Latest RSI, weekly:", latest_rsi_weekly, Style.RESET_ALL)
 
+        latest_macd_weekly = float(f'{stg.weekly_macd_diff.iloc[-1]:.4g}')
+        if latest_macd_weekly < 0:
+            print("Latest Weekly MACD Divergence:", Fore.RED + str(latest_macd_weekly), Style.RESET_ALL)
+        elif latest_macd_weekly > 0:
+            print("Latest Weekly MACD Divergence:", Fore.GREEN + str(latest_macd_weekly), Style.RESET_ALL)
+        else:
+            print("Latest Weekly MACD Divergence:", Fore.BLACK + str(latest_macd_weekly), Style.RESET_ALL)
+            
         self.break_point_solution()
 
         if self.strategy == 'daily':
