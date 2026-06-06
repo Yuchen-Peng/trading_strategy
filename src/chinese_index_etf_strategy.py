@@ -553,7 +553,7 @@ class etf_strategy:
         else:
             print("Latest RSI, weekly:", latest_rsi_weekly, Style.RESET_ALL)
 
-        latest_macd_weekly = float(f'{stg.weekly_macd_diff.iloc[-1]:.4g}')
+        latest_macd_weekly = float(f'{self.weekly_macd_diff.iloc[-1]:.4g}')
         if latest_macd_weekly < 0:
             print("Latest Weekly MACD Divergence:", Fore.RED + str(latest_macd_weekly), Style.RESET_ALL)
         elif latest_macd_weekly > 0:
