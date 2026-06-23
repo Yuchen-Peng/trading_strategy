@@ -454,7 +454,7 @@ class etf_strategy:
             plt.show()
 
     def calculate_atr(self, period: int = 14) -> float:
-        df = self.realtime_df().set_index('date').tail(100).sort_index()
+        df = self.df.set_index('date').tail(100).sort_index()
         high_low = df['high'] - df['low']
         high_close_prev = (df['high'] - df['close'].shift()).abs()
         low_close_prev = (df['low'] - df['close'].shift()).abs()
@@ -466,7 +466,7 @@ class etf_strategy:
         
     def atr_drawdown_thresholds(self, period: int = 14, realtime=False) -> float:
         self.calculate_atr(period)
-        last_closing = self.realtime_df()['close'].iloc[-1]
+        last_closing = self.df['close'].iloc[-1]
         print(f"Last closing price: {last_closing}; ATR: {self.atr_static}")
         p_breakout = float(input('Enter the breakout price:'))
         print(f"Did the last closing price stay above breakout price - 0.5*ATR? {last_closing > p_breakout - 0.5*self.atr_static}")
