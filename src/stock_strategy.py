@@ -208,6 +208,13 @@ class stock_strategy:
                 [self.df[['date', 'open', 'close', 'high', 'low', 'volume']],
                  df_new[['date', 'open', 'close', 'high', 'low', 'volume']]]
             ).reset_index(drop=True)
+        df_realtime['20 Day MA'] = df_realtime['close'].rolling(window=20).mean()
+        df_realtime['50 Day MA'] = df_realtime['close'].rolling(window=50).mean()
+        df_realtime['Upper Band - 20MA'] = df_realtime['20 Day MA'] + (df_realtime['close'].rolling(window=20).std() * 2)
+        df_realtime['Lower Band - 20MA'] = df_realtime['20 Day MA'] - (df_realtime['close'].rolling(window=20).std() * 2)
+        df_realtime['Upper Band - 50MA'] = df_realtime['50 Day MA'] + (df_realtime['close'].rolling(window=50).std() * 2.5)
+        df_realtime['Lower Band - 50MA'] = df_realtime['50 Day MA'] - (df_realtime['close'].rolling(window=50).std() * 2.5)
+        df_realtime
         daily_ema_12 = df_realtime['close'].ewm(span=12, adjust=False).mean()
         daily_ema_26 = df_realtime['close'].ewm(span=26, adjust=False).mean()
         macd = daily_ema_12 - daily_ema_26

@@ -463,6 +463,13 @@ class etf_strategy:
         atr = tr.ewm(span=period, adjust=False).mean()            # EMA version
         self.atr_static = atr.iloc[-2]  # latest ATR, not including today's dynamic prices
         self.atr_realtime = atr.iloc[-1]
+        high_low = self.weekly_summary['high'] - self.weekly_summary['low']
+        high_close_prev = (self.weekly_summary['high'] - self.weekly_summary['close'].shift()).abs()
+        low_close_prev = (self.weekly_summary['low'] - self.weekly_summary['close'].shift()).abs()
+        tr = pd.concat([high_low, high_close_prev, low_close_prev], axis=1).max(axis=1)
+        atr = tr.ewm(span=14, adjust=False).mean()            # EMA version
+        self.weekly_atr = atr.iloc[-1]
+
         
     def atr_drawdown_thresholds(self, period: int = 14, realtime=False) -> float:
         self.calculate_atr(period)
