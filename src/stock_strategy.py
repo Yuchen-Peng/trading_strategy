@@ -380,7 +380,7 @@ class stock_strategy:
         high_centers = np.sort(high_centers, axis=0)
         return low_centers, high_centers
 
-    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True, realtime=False, detailed=False):
+    def calculate_anchored_vwap(self, start_date='2020-03-20', plot=True, realtime=False, detailed=False, return_avwap=False):
         if realtime:
             anchored_df = self.realtime_df()[self.realtime_df()['date'] >= start_date]
         else:
@@ -394,7 +394,10 @@ class stock_strategy:
         cumulative_pv = anchored_df['pv'].cumsum()
         cumulative_volume = anchored_df['volume'].cumsum()
         anchored_vwap_series = cumulative_pv / cumulative_volume
-        print(f'Latest anchored VWAP since {start_date} is {anchored_vwap_series.iloc[-1]}')
+        if return_avwap:
+            return round(anchored_vwap_series.iloc[-1],2)
+        else:
+            print(f'Latest anchored VWAP since {start_date} is {anchored_vwap_series.iloc[-1]}')
         # anchored vwap band
         log_anchored_vwap = np.log(anchored_vwap_series)
         anchored_vwap_std = log_anchored_vwap.expanding().std()
@@ -421,6 +424,7 @@ class stock_strategy:
             ax2.tick_params(axis='y', labelcolor='orange')
             ax.legend()
             plt.show()
+
 
     def calculate_atr(self, period: int = 14) -> float:
         df = self.realtime_df().set_index('date').tail(100).sort_index()
